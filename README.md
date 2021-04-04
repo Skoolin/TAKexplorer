@@ -5,7 +5,7 @@ To run you need to supply an opening database to explore:
 `TAKexplorer.py explore <database file name>`
 
 If you want to stare at a red progress bar for two hours, you can generate the database by yourself as well:  
-`TAKexplorer extract -i <database file> -o <output file> [ -p \<minimum plies> ] [ -n \<maximum games> ] [ -r \<minimum rating> ]` 
+`TAKexplorer extract -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum games> ] [ -r <minimum rating> ]` 
 
 Yes, I know, it should not take that long and both my python code and my SQL queries are ugly, deal with it xD
 
