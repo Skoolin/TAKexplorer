@@ -1,13 +1,12 @@
 # generates an opening database from Playtak.com games database
 
 name: create database release
-
+  
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '*/30 5 * * 2'
+  
 jobs:
   build:
 
@@ -30,3 +29,8 @@ jobs:
     - name: generate database
       run: |
         TAKexplorer.py extract -i data/games_anon.db -o data/openings_s6_1200.db -p 12 -n 100 -r 1200
+    - name: archive database
+      uses: actions/upload-artifact@v2
+      with:
+        name: database-release
+        path: data/openings_s6_1200.db
