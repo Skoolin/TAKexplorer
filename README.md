@@ -1,5 +1,5 @@
 # TAKexplorer
-A tak opening DB generator and explorer (Currently only supports size 6)
+A tak opening DB generator and explorer (Currently only supports games with board size 6)
 
 To run you need to supply an opening database to explore:  
 `TAKexplorer.py explore <database file name>`
