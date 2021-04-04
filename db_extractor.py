@@ -98,34 +98,7 @@ def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int):
             output_file.write(get_ptn(r))
 
 
-def main(argv):
-    db_file = ''
-    target_file = ''
-
-    num_plies = 1
-    num_games = sys.maxsize
-    min_rating = 0
-
-    try:
-        opts, args = getopt.getopt(argv, "hi:o:p:n:r:", ["ifile=", "ofile=", "min_plies=", "max_games=", "min_rating="])
-    except:
-        print('db_extractor.py -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum games> ]')
-        sys.exit(2)
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print('db_extractor.py -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum games> ]')
-            sys.exit()
-        elif opt in ('-i', '--ifile'):
-            db_file = arg
-        elif opt in ('-o', '--ofile'):
-            target_file = arg
-        elif opt in ('-p', '--min_plies'):
-            num_plies = int(arg)
-        elif opt in ('-n', '--max_games'):
-            num_games = int(arg)
-        elif opt in ('-r', '--min_rating'):
-            min_rating = int(arg)
+def main(db_file, target_file, num_plies, num_games, min_rating):
 
     # check if db file exists
     try:
@@ -135,13 +108,4 @@ def main(argv):
         print("File not accessible")
         sys.exit(2)
 
-    if target_file == '':
-        print("you need to give an input file and an output file")
-        print('db_extractor.py -i <database file> -o <output file> [ -n <minimum plies> ]')
-        sys.exit(2)
-
     extract_ptn(db_file, target_file, num_plies, num_games, min_rating)
-
-
-if __name__ == '__main__':
-    main(sys.argv[1:])

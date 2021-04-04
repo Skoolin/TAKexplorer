@@ -12,8 +12,8 @@ from tak import GameState
 
 class TAKexplorer:
 
-    def __init__(self):
-        self.db = sqlite3.connect('data/positions_s6_1200.db')
+    def __init__(self, db_file):
+        self.db = sqlite3.connect(db_file)
         self.db.row_factory = sqlite3.Row
 
         self.top = tkinter.Tk()
@@ -174,11 +174,7 @@ class TAKexplorer:
             self.collect()
 
 
-def collector_main():
-    expl = TAKexplorer()
+def collector_main(db_file):
+    expl = TAKexplorer(db_file)
 
     expl.top.mainloop()
-
-
-if __name__ == '__main__':
-    collector_main()

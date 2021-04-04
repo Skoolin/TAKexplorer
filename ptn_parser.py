@@ -48,9 +48,7 @@ def add_ptn(ptn, db: PositionDataBase, max_plies=sys.maxsize):
     db.add_position(game_id, None, result, tak.get_tps())
 
 
-def main():
-    ptn_file = "data/games_anon.ptn"
-    db_file = "data/positions.db"
+def main(ptn_file, db_file):
 
     max_plies = 24
 
@@ -77,7 +75,3 @@ def main():
                 line = f.readline()
 
     db.conn.commit()
-
-
-if __name__ == '__main__':
-    main()
