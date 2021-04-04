@@ -23,15 +23,15 @@ def main(args):
                                        ["ifile=", "ofile=", "min_plies=", "max_games=", "min_rating="])
         except:
             print(
-                'TAKexplorer extract_db -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum '
+                'TAKexplorer.py extract -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum '
                 'games> ] [ -r <minimum rating> ]')
             sys.exit(2)
 
         for opt, arg in opts:
             if opt == '-h':
                 print(
-                    'db_extractor.py -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum games> '
-                    '] [ -r <minimum rating> ]')
+                    'TAKexplorer.py extract -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum '
+                    'games> ] [ -r <minimum rating> ]')
                 sys.exit()
             elif opt in ('-i', '--ifile'):
                 db_file = arg
