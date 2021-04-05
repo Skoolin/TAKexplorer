@@ -11,8 +11,8 @@ Yes, I know, it should not take that long and both my python code and my SQL que
 
 I already have generated a database with all players rating 1200+ if you want to use it instead of generating your own.
 
-You need to have sqlite3 installed:  
-`pip install sqlite3`
+You need to have pillow and tqdm installed:  
+`pip install pillow, tqdm
 
 Also, you need grupplers wonderful TPStoPNG tool:  
 https://github.com/gruppler/TPS-Ninja
