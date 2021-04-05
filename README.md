@@ -9,7 +9,7 @@ If you want to stare at a red progress bar for two hours, you can generate the d
 
 Yes, I know, it should not take that long and both my python code and my SQL queries are ugly, deal with it xD
 
-I already have generated a database with all players rating 1200+ if you want to use it instead of generating your own.
+I already have generated a database with all players rating 1200+ if you want to use it instead of generating your own. You can download it by going to [actions](https://github.com/Skoolin/TAKexplorer/actions). There you can click on the latest green workflow run and scroll down to artifacts. The file you are looking for is called positions_s6_1200.db (~65mb).
 
 You need to have pillow and tqdm installed:  
 `pip install pillow tqdm`
