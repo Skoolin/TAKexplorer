@@ -55,13 +55,17 @@ class TAKexplorer:
         tps = symmetry_normalisator.transform_tps(tps, symmetry_normalisator.get_tps_orientation(tps))
 
         games_sql = f"""
-        SELECT games.id, games.ptn,
+        SELECT games.id, games.ptn, games.rating_white, games.rating_black,
             game_position_xref.game_id, game_position_xref.position_id,
-            positions.id, positions.tps
+            positions.id, positions.tps,
+            CASE WHEN games.rating_white < games.rating_black THEN games.rating_white
+                ELSE games.rating_black
+                END AS min_rating
         FROM game_position_xref, games, positions
         WHERE game_position_xref.position_id=positions.id
             AND games.id = game_position_xref.game_id
-            AND positions.tps = '{tps}';"""
+            AND positions.tps = '{tps}'
+        ORDER BY min_rating DESC;"""
 
         cur = self.db.cursor()
         cur.execute(games_sql)
