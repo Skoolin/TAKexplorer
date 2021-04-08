@@ -16,3 +16,6 @@ You need to have pillow and tqdm installed:
 
 Also, you need grupplers wonderful TPStoPNG tool:  
 https://github.com/gruppler/TPS-Ninja
+
+In the Wiki I started to write up an index of popular openings: https://github.com/Skoolin/TAKexplorer/wiki  
+Feel free to discuss, analyse and add to them!
