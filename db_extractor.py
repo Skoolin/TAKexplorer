@@ -71,6 +71,8 @@ def get_ptn(game) -> str:
     ptn += get_header('Rating1', game['rating_white'])
     ptn += get_header('Rating2', game['rating_black'])
 
+    ptn += get_header('platak_id', game['id'])
+
     ptn += get_moves(game['notation'])
     ptn += '\n\n\n'
 
@@ -109,3 +111,4 @@ def main(db_file, target_file, num_plies, num_games, min_rating):
         sys.exit(2)
 
     extract_ptn(db_file, target_file, num_plies, num_games, min_rating)
+

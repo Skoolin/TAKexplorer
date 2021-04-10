@@ -1,4 +1,5 @@
-import sys, getopt
+import getopt
+import sys
 
 import data_collector
 import db_extractor

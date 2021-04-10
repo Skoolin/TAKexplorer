@@ -21,6 +21,8 @@ def add_ptn(ptn, db: PositionDataBase, max_plies=sys.maxsize):
     rating_white = int(spl[6][10:-2])
     rating_black = int(spl[7][10:-2])
 
+    playtak_id = int(spl[8][12:-2])
+
     # parse moves
     spl = moves.split("\n")
     all_moves = []
@@ -37,13 +39,13 @@ def add_ptn(ptn, db: PositionDataBase, max_plies=sys.maxsize):
     tak = GameState(size)
 
     # add game to database
-    game_id = db.add_game(size, white_name, black_name, ptn, result, rating_white, rating_black)
+    game_id = db.add_game(playtak_id, size, white_name, black_name, ptn, result, rating_white, rating_black)
 
-    symmetry = db.add_position(game_id, all_moves[0], result, tak.get_tps())
+    db.add_position(game_id, all_moves[0], result, tak.get_tps())
     # make all moves
     for i in range(0, len(all_moves) - 1):
         tak.move(all_moves[i])
-        symmetry = db.add_position(game_id, all_moves[i + 1], result, tak.get_tps())
+        db.add_position(game_id, all_moves[i + 1], result, tak.get_tps())
     tak.move(all_moves[-1])
     db.add_position(game_id, None, result, tak.get_tps())
 

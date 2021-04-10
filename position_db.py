@@ -14,6 +14,7 @@ class PositionDataBase:
         create_tables_sql = ["""
         CREATE TABLE IF NOT EXISTS games (
             id integer PRIMARY KEY,
+            playtak_id integer,
             size integer,
             white text NOT NULL,
             black text NOT NULL,
@@ -139,10 +140,10 @@ class PositionDataBase:
         for line in self.conn.iterdump():
             print(line)
 
-    def add_game(self, size: int, white_name: str, black_name: str, ptn: str, result: str, rating_white: int, rating_black: int) -> int:
+    def add_game(self, size: int, playtak_id: int, white_name: str, black_name: str, ptn: str, result: str, rating_white: int, rating_black: int) -> int:
         insert_game_data_sql = f"""
-        INSERT INTO games (size, white, black, result, ptn, rating_white, rating_black)
-        VALUES ('{size}', '{white_name}', '{black_name}', '{result}', '{ptn}', {rating_white}, {rating_black});
+        INSERT INTO games (playtak_id, size, white, black, result, ptn, rating_white, rating_black)
+        VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', '{ptn}', {rating_white}, {rating_black});
         """
         get_game_idx_sql = f"""
         SELECT id FROM games WHERE ptn = '{ptn}';

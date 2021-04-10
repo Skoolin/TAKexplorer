@@ -57,15 +57,12 @@ class TAKexplorer:
         games_sql = f"""
         SELECT games.id, games.ptn, games.rating_white, games.rating_black,
             game_position_xref.game_id, game_position_xref.position_id,
-            positions.id, positions.tps,
-            CASE WHEN games.rating_white < games.rating_black THEN games.rating_white
-                ELSE games.rating_black
-                END AS min_rating
+            positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
         FROM game_position_xref, games, positions
         WHERE game_position_xref.position_id=positions.id
             AND games.id = game_position_xref.game_id
             AND positions.tps = '{tps}'
-        ORDER BY min_rating DESC;"""
+        ORDER BY AVG_rating DESC;"""
 
         cur = self.db.cursor()
         cur.execute(games_sql)
