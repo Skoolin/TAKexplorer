@@ -20,19 +20,22 @@ def main(args):
         min_rating = 0
 
         try:
-            opts, args = getopt.getopt(argv, "hi:o:p:n:r:",
-                                       ["ifile=", "ofile=", "min_plies=", "max_games=", "min_rating="])
+            opts, args = getopt.getopt(argv, "hi:o:p:n:r:b:w:",
+                                       ["ifile=", "ofile=", "min_plies=", "max_games=", "min_rating=", "black=", "white="])
         except:
             print(
                 'TAKexplorer.py extract -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum '
-                'games> ] [ -r <minimum rating> ]')
+                'games> ] [ -r <minimum rating> ] [ -b <black player> ] [ -w <white player>]')
             sys.exit(2)
+
+        player_black = None
+        player_white = None
 
         for opt, arg in opts:
             if opt == '-h':
                 print(
                     'TAKexplorer.py extract -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum '
-                    'games> ] [ -r <minimum rating> ]')
+                    'games> ] [ -r <minimum rating> ] [ -b <black player> ] [ -w <white player>]')
                 sys.exit()
             elif opt in ('-i', '--ifile'):
                 db_file = arg
@@ -44,8 +47,12 @@ def main(args):
                 num_games = int(arg)
             elif opt in ('-r', '--min_rating'):
                 min_rating = int(arg)
+            elif opt in ('-b', '--black'):
+                player_black = arg
+            elif opt in ('-w', '--white'):
+                player_white = arg
 
-        db_extractor.main(db_file, ptn_file, num_plies, num_games, min_rating)
+        db_extractor.main(db_file, ptn_file, num_plies, num_games, min_rating, player_black, player_white)
         ptn_parser.main(ptn_file, target_file)
 
     elif task == 'explore':
