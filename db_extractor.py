@@ -1,5 +1,7 @@
-import sys, getopt
+import sys
+
 import sqlite3
+from xmlrpc.client import DateTime
 
 
 def get_header(key: str, val: str):
@@ -52,17 +54,8 @@ def get_ptn(game) -> str:
     ptn += get_header('Site', 'PlayTak.com')
     ptn += get_header('Event', 'Online Play')
 
-# TODO date and time headers
-#    dt = DateTime.strptime((game.date/1000).to_s, '%s').to_s
-#    dt = (dt.gsub 'T', ' ').gsub '+00:00', ''
-#    ptn += get_header('Date', dt.split(' ')[0].gsub('-', '.'))
-#    ptn += get_header('Time', dt.split(' ')[1])
-
     ptn += get_header('Player1', wn)
     ptn += get_header('Player2', bn)
-
-# TODO clock header
-#    ptn += get_header('Clock', get_timer_info(game.timertime, game.timerinc))
 
     ptn += get_header('Result', game['result'])
     ptn += get_header('Size', game['size'])
@@ -72,6 +65,16 @@ def get_ptn(game) -> str:
     ptn += get_header('Rating2', game['rating_black'])
 
     ptn += get_header('platak_id', game['id'])
+
+    # date and time headers
+    dt = str(DateTime((game['date'] / 1000)))
+    dt_d = dt.split('T')[0]
+    dt_d = ''+dt_d[6:8]+'.'+dt_d[4:6]+'.'+dt_d[0:4]
+    ptn += get_header('Date', dt_d)
+    ptn += get_header('Time', dt.split('T')[1])
+
+    # TODO clock header
+    #    ptn += get_header('Clock', get_timer_info(game.timertime, game.timerinc))
 
     ptn += get_moves(game['notation'])
     ptn += '\n\n\n'
