@@ -1,6 +1,7 @@
 import os
 
 import sqlite3
+from typing import Union
 
 import symmetry_normalisator
 
@@ -36,9 +37,11 @@ class PositionDataBase:
         CREATE TABLE IF NOT EXISTS moves_map (
             id integer PRIMARY KEY,
             times_played integer,
-            position_id integer NOT NULL,
+            position_id integer,
+            next_position_id integer,
             ptn text NOT NULL,
-            FOREIGN KEY (position_id) REFERENCES positions(id)
+            FOREIGN KEY (position_id) REFERENCES positions(id),
+            FOREIGN KEY (next_position_id) REFERENCES positions(id)
         );
         """,
                              """
@@ -70,11 +73,16 @@ class PositionDataBase:
         except sqlite3.Error as e:
             print(e)
 
-    def add_position(self, game_id: int, move, result: str, tps: str) -> int:
+    def add_position(self, game_id: int, move, result: str, tps: str, next_tps: Union[str, None]) -> int:
+        curr = self.conn.cursor()
 
         # normalize for symmetries
         own_symmetry = symmetry_normalisator.get_tps_orientation(tps)
         tps = symmetry_normalisator.transform_tps(tps, own_symmetry)
+
+        if next_tps is not None:
+            next_symmetry = symmetry_normalisator.get_tps_orientation(next_tps)
+            next_tps = symmetry_normalisator.transform_tps(next_tps, next_symmetry)
 
         select_position_row_sql = f"""
             SELECT * 
@@ -83,7 +91,6 @@ class PositionDataBase:
             ;
         """
 
-        curr = self.conn.cursor()
         curr.execute(select_position_row_sql)
         row = curr.fetchone()
 
@@ -92,6 +99,24 @@ class PositionDataBase:
             self.create_position_entry(tps)
             curr.execute(select_position_row_sql)
             row = curr.fetchone()
+
+        if next_tps is not None:
+            select_next_position_row_sql = f"""
+                SELECT * 
+                FROM positions 
+                WHERE tps = '{next_tps}'
+                ;
+            """
+            curr.execute(select_next_position_row_sql)
+            next_pos = curr.fetchone()
+
+            # if next position does not exist, create it
+            if next_pos is None:
+                self.create_position_entry(next_tps)
+                curr.execute(select_next_position_row_sql)
+                next_pos = curr.fetchone()
+
+            next_pos_id = dict(next_pos)['id']
 
         # update win counts of either player:
         row_dict = dict(row)
@@ -125,7 +150,7 @@ class PositionDataBase:
 
             # if this move does not exist, create it
             if row is None:
-                self.create_move_entry(position_id, move)
+                self.create_move_entry(position_id, move, next_pos_id)
                 curr.execute(select_move_row_sql)
                 row = curr.fetchone()
 
@@ -162,10 +187,10 @@ class PositionDataBase:
         curr = self.conn.cursor()
         curr.execute(insert_position_data_sql)
 
-    def create_move_entry(self, pos_id: int, move: str):
+    def create_move_entry(self, pos_id: int, move: str, next_pos_id: int):
         insert_move_data_sql = f"""
-        INSERT INTO moves_map (position_id, times_played, ptn)
-        VALUES ({pos_id}, 0, '{move}');
+        INSERT INTO moves_map (position_id, next_position_id, times_played, ptn)
+        VALUES ({pos_id}, {next_pos_id}, 0, '{move}');
         """
         curr = self.conn.cursor()
         curr.execute(insert_move_data_sql)

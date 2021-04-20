@@ -21,7 +21,7 @@ def add_ptn(ptn, db: PositionDataBase, max_plies=sys.maxsize):
     rating_white = int(spl[6][10:-2])
     rating_black = int(spl[7][10:-2])
 
-    playtak_id = int(spl[8][12:-2])
+    playtak_id = int(spl[8].split(' ')[1][1:-2])
 
     # parse moves
     spl = moves.split("\n")
@@ -41,13 +41,13 @@ def add_ptn(ptn, db: PositionDataBase, max_plies=sys.maxsize):
     # add game to database
     game_id = db.add_game(playtak_id, size, white_name, black_name, ptn, result, rating_white, rating_black)
 
-    db.add_position(game_id, all_moves[0], result, tak.get_tps())
     # make all moves
-    for i in range(0, len(all_moves) - 1):
+    for i in range(0, len(all_moves)):
+        last_tps = tak.get_tps()
         tak.move(all_moves[i])
-        db.add_position(game_id, all_moves[i + 1], result, tak.get_tps())
-    tak.move(all_moves[-1])
-    db.add_position(game_id, None, result, tak.get_tps())
+        last_move = all_moves[i]
+        db.add_position(game_id, last_move, result, last_tps, tak.get_tps())
+    db.add_position(game_id, None, result, tak.get_tps(), None)
 
 
 def main(ptn_file, db_file):
@@ -63,7 +63,7 @@ def main(ptn_file, db_file):
     count = f.read().count('[Site')
     f.close()
 
-    with tqdm(total=count) as progress:
+    with tqdm(total=count, mininterval=10.0, maxinterval=50.0) as progress:
         with open(ptn_file) as f:
             line = f.readline()
             ptn += line

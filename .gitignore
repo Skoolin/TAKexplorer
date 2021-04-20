@@ -2,3 +2,5 @@
 /data/*
 /.idea/*
 /util/drawn_games/*
+/util/*.csv
+/util/db_dump

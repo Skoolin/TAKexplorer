@@ -101,9 +101,9 @@ class GameState:
                 s.append(square.stones.pop())
             direction = ptn[2]
             rest = ptn[3:]
-            square_idx = get_adjacent(square_idx, direction)
-            square = self.get_square(square_idx)
             for i in range(0, len(rest)):
+                square_idx = get_adjacent(square_idx, direction)
+                square = self.get_square(square_idx)
                 # flatten if top stone is wall
                 try:
                     top_stone = square.stones.pop()
@@ -114,16 +114,6 @@ class GameState:
                 count = int(rest[i])
                 for j in range(0, count):
                     square.stones.append(s.pop())
-                square_idx = get_adjacent(square_idx, direction)
-                square = self.get_square(square_idx)
-
-            # flatten if top stone is wall
-            try:
-                top_stone = square.stones.pop()
-                top_stone.stone_type = 'F'
-                square.stones.append(top_stone)
-            except IndexError:
-                top_stone = None
             count = len(s)
             for j in range(0, count):
                 square.stones.append(s.pop())

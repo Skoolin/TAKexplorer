@@ -6,6 +6,7 @@ on:
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '30 2 * * 2'
+  push:
 
 jobs:
   build:
@@ -26,6 +27,7 @@ jobs:
       run: |
         pip install pillow tqdm
         python TAKexplorer.py extract -i data/games_anon.db -o data/openings_s6_1200.db -p 12 -n 100000 -r 1200
+        python util/dump_db.py
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -36,8 +38,8 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
-    - name: Upload Release Asset
-      id: upload-release-asset
+    - name: Upload sqlite3 db
+      id: upload-sqlite3-db
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,4 +47,14 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
         asset_path: data/openings_s6_1200.db
         asset_name: openings_s6_1200.db
+        asset_content_type: text/plain
+    - name: Upload CSV dump
+      id: upload-csv-dump
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+        asset_path: db_dump
+        asset_name: db_dump
         asset_content_type: text/plain

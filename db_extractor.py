@@ -29,7 +29,7 @@ def convert_move(move: str):
                 res += ('>' if spl[1][0] < spl[2][0] else '<')
 
             # get the stones dropped each square
-            return res + spl[3][:-1]
+            return res + spl[3]
         return ''
 
 
@@ -64,7 +64,7 @@ def get_ptn(game) -> str:
     ptn += get_header('Rating1', game['rating_white'])
     ptn += get_header('Rating2', game['rating_black'])
 
-    ptn += get_header('platak_id', game['id'])
+    ptn += get_header('playtak_id', game['id'])
 
     # date and time headers
     dt = str(DateTime((game['date'] / 1000)))
