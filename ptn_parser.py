@@ -53,7 +53,7 @@ def add_ptn(ptn, dp: PositionProcessor, max_plies=sys.maxsize):
 
 def main(ptn_file, dp: PositionProcessor):
 
-    max_plies = 24
+    max_plies = 30
 
     ptn = ''
 
