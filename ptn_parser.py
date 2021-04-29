@@ -3,10 +3,11 @@ import sys
 from tqdm import tqdm
 
 from position_db import PositionDataBase
+from position_processor import PositionProcessor
 from tak import GameState
 
 
-def add_ptn(ptn, db: PositionDataBase, max_plies=sys.maxsize):
+def add_ptn(ptn, dp: PositionProcessor, max_plies=sys.maxsize):
 
     spl = ptn.split("\n\n")
     headers = spl[0]
@@ -39,23 +40,20 @@ def add_ptn(ptn, db: PositionDataBase, max_plies=sys.maxsize):
     tak = GameState(size)
 
     # add game to database
-    game_id = db.add_game(playtak_id, size, white_name, black_name, ptn, result, rating_white, rating_black)
+    game_id = dp.add_game(playtak_id, size, white_name, black_name, ptn, result, rating_white, rating_black)
 
     # make all moves
     for i in range(0, len(all_moves)):
         last_tps = tak.get_tps()
         tak.move(all_moves[i])
         last_move = all_moves[i]
-        db.add_position(game_id, last_move, result, last_tps, tak.get_tps())
-    db.add_position(game_id, None, result, tak.get_tps(), None)
+        dp.add_position(game_id, last_move, result, last_tps, tak.get_tps(), tak)
+    dp.add_position(game_id, None, result, tak.get_tps(), None, tak)
 
 
-def main(ptn_file, db_file):
+def main(ptn_file, dp: PositionProcessor):
 
     max_plies = 24
-
-    db = PositionDataBase()
-    db.create(db_file)
 
     ptn = ''
 
@@ -70,10 +68,8 @@ def main(ptn_file, db_file):
             line = f.readline()
             while line:
                 if line.startswith("[Site"):
-                    add_ptn(ptn, db, max_plies)
+                    add_ptn(ptn, dp, max_plies)
                     progress.update()
                     ptn = ''
                 ptn += line
                 line = f.readline()
-
-    db.conn.commit()

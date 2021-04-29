@@ -4,9 +4,11 @@ import sqlite3
 from typing import Union
 
 import symmetry_normalisator
+from position_processor import PositionProcessor
+from tak import GameState
 
 
-class PositionDataBase:
+class PositionDataBase(PositionProcessor):
 
     def __init__(self):
         self.conn = None
@@ -73,7 +75,7 @@ class PositionDataBase:
         except sqlite3.Error as e:
             print(e)
 
-    def add_position(self, game_id: int, move, result: str, tps: str, next_tps: Union[str, None]) -> int:
+    def add_position(self, game_id: int, move, result: str, tps: str, next_tps: Union[str, None], tak: GameState) -> int:
         curr = self.conn.cursor()
 
         # normalize for symmetries
