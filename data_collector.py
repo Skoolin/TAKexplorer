@@ -87,7 +87,7 @@ class TAKexplorer:
         symmetry = symmetry_normalisator.get_tps_orientation(tps)
         sym_tps = symmetry_normalisator.transform_tps(tps, symmetry)
 
-        os.system(f'TPStoPNG "{tps} 1 1" name=tak opening=no-swap')
+        os.system(f'TPStoPNG "{tps}" name=tak opening=no-swap')
         img_load = Image.open("tak.png")
         render = ImageTk.PhotoImage(img_load)
 
@@ -105,10 +105,14 @@ class TAKexplorer:
         textvar = f"white <- {row['wwins']}  :  {row['bwins']} -> black"
         self.win_rate.set(textvar)
 
-        select_moves_sql = f"SELECT * FROM moves_map WHERE position_id={pos_id} ORDER BY times_played DESC;"
+        position_moves = row['moves']
+        if position_moves == '':
+            position_moves = []
+        else:
+            position_moves = position_moves.split(';')
 
-        cur.execute(select_moves_sql)
-        rows = cur.fetchall()
+        moves_list = list(map(lambda x: x.split(','), position_moves))
+        moves_list.sort(key=lambda x: int(x[2]), reverse=True)
 
         result = []
 
@@ -118,15 +122,13 @@ class TAKexplorer:
         real_positions = []
 
         m_i = 0
-        for i, r in enumerate(rows):
+        for r in moves_list:
             if len(real_positions) >= 20:
                 break
 
-            row = dict(r)
-
             cloned_game = self.game.clone()
 
-            move = row['ptn']
+            move = r[0]
             move = symmetry_normalisator.transposed_transform_move(move, symmetry)
 
             cloned_game.move(move)

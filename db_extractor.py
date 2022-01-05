@@ -86,12 +86,12 @@ def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, pla
     con = sqlite3.connect(f)
     con.row_factory = sqlite3.Row
     games = con.execute(f"""
-        SELECT *, LENGTH(notation) - LENGTH(REPLACE(notation,',','')) - 1 AS numplies 
-        FROM games 
+        SELECT *, LENGTH(notation) - LENGTH(REPLACE(notation,',','')) - 1 AS numplies
+        FROM games
         WHERE
-            numplies>{num_plies} AND 
+            numplies>{num_plies} AND
             (rating_white >= {min_rating} AND
-            rating_black >= {min_rating}) AND 
+            rating_black >= {min_rating}) AND
             {'' if player_white is None else f'player_white = "{player_white}" AND'}
             {'' if player_black is None else f'player_black = "{player_black}" AND'}
             size = 6
@@ -116,4 +116,3 @@ def main(db_file, target_file, num_plies, num_games, min_rating, player_black=No
         sys.exit(2)
 
     extract_ptn(db_file, target_file, num_plies, num_games, min_rating, player_white, player_black)
-

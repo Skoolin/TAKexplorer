@@ -1,5 +1,6 @@
 import sys
 
+# only works with size 6!!
 
 def flip_tps(tps: str) -> str:
     spl = tps.split('/')
@@ -43,6 +44,9 @@ def rotate_tps(tps: str) -> str:
 
 
 def get_tps_orientation(tps: str) -> int:
+    # ignore ending (current player)
+    tps = tps[:-4]
+
     o = 0
     best_tps = tps
 
@@ -66,6 +70,10 @@ def get_tps_orientation(tps: str) -> int:
 
 
 def transform_tps(tps: str, orientation: int) -> str:
+    # remove current player and current move
+    ending = tps[-4:]
+    tps = tps[:-4]
+
     if orientation > 3:
         tps = flip_tps(tps)
         for i in range(4, orientation):
@@ -74,7 +82,7 @@ def transform_tps(tps: str, orientation: int) -> str:
         for i in range(0, orientation):
             tps = rotate_tps(tps)
 
-    return tps
+    return tps + ending
 
 
 def transposed_transform_tps(tps: str, orientation: int) -> str:

@@ -4,3 +4,4 @@
 /util/drawn_games/*
 /util/*.csv
 /util/db_dump
+/__pycache__/*

@@ -32,18 +32,8 @@ class PositionDataBase(PositionProcessor):
             id integer PRIMARY KEY,
             tps text UNIQUE,
             bwins integer,
-            wwins integer
-        );
-        """,
-                             """
-        CREATE TABLE IF NOT EXISTS moves_map (
-            id integer PRIMARY KEY,
-            times_played integer,
-            position_id integer,
-            next_position_id integer,
-            ptn text NOT NULL,
-            FOREIGN KEY (position_id) REFERENCES positions(id),
-            FOREIGN KEY (next_position_id) REFERENCES positions(id)
+            wwins integer,
+            moves text
         );
         """,
                              """
@@ -87,8 +77,8 @@ class PositionDataBase(PositionProcessor):
             next_tps = symmetry_normalisator.transform_tps(next_tps, next_symmetry)
 
         select_position_row_sql = f"""
-            SELECT * 
-            FROM positions 
+            SELECT *
+            FROM positions
             WHERE tps = '{tps}'
             ;
         """
@@ -104,8 +94,8 @@ class PositionDataBase(PositionProcessor):
 
         if next_tps is not None:
             select_next_position_row_sql = f"""
-                SELECT * 
-                FROM positions 
+                SELECT *
+                FROM positions
                 WHERE tps = '{next_tps}'
                 ;
             """
@@ -136,32 +126,34 @@ class PositionDataBase(PositionProcessor):
         """)
 
         # if a move is given also update the move table
-
         if move is not None:
             # orient move to previous symmetry
             move = symmetry_normalisator.transform_move(move, own_symmetry)
-            select_move_row_sql = f"""
-                SELECT *
-                FROM moves_map
-                WHERE position_id = {position_id}
-                    AND ptn = '{move}'
-                ;
-            """
-            curr.execute(select_move_row_sql)
-            row = curr.fetchone()
+            position_moves = row_dict['moves']
+            if position_moves != '':
+                position_moves = row_dict['moves'].split(';')
+            else:
+                position_moves = []
+            moves_list = list(map(lambda x: x.split(','), position_moves))
 
-            # if this move does not exist, create it
-            if row is None:
-                self.create_move_entry(position_id, move, next_pos_id)
-                curr.execute(select_move_row_sql)
-                row = curr.fetchone()
+            # if move is in moves_list, update count
+            move_found = False
+            for moves in moves_list:
+                if moves[0] == move:
+                    move_found = True
+                    moves[2] = str(int(moves[2]) + 1) # increment times played
+                    break
 
-            # update move count
-            row_dict = dict(row)
-            move_id = row_dict['id']
-            curr.execute(f"""UPDATE moves_map SET times_played=times_played+1 WHERE id={move_id}""")
+            if not move_found:
+                # append new move to moves_list
+                moves_list.append([move, str(next_pos_id), '1'])
 
-            return own_symmetry
+            # transform moves_list into db string format
+            position_moves = ';'.join(list(map(lambda x: ','.join(x), moves_list)))
+
+            curr.execute(f"""UPDATE positions SET moves='{position_moves}' WHERE id={position_id}""")
+
+        return own_symmetry
 
     def dump(self):
         for line in self.conn.iterdump():
@@ -183,16 +175,8 @@ class PositionDataBase(PositionProcessor):
 
     def create_position_entry(self, tps: str):
         insert_position_data_sql = f"""
-        INSERT INTO positions (tps, wwins, bwins)
-        VALUES ('{tps}', 0, 0);
+        INSERT INTO positions (tps, wwins, bwins, moves)
+        VALUES ('{tps}', 0, 0, '');
         """
         curr = self.conn.cursor()
         curr.execute(insert_position_data_sql)
-
-    def create_move_entry(self, pos_id: int, move: str, next_pos_id: int):
-        insert_move_data_sql = f"""
-        INSERT INTO moves_map (position_id, next_position_id, times_played, ptn)
-        VALUES ({pos_id}, {next_pos_id}, 0, '{move}');
-        """
-        curr = self.conn.cursor()
-        curr.execute(insert_move_data_sql)

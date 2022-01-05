@@ -156,7 +156,10 @@ class GameState:
                         if square.stones[i].stone_type.lower() != 'f':
                             row += square.stones[i].stone_type.upper()
             res += row + '/'
-        return res[:-1]
+        res = res[:-1] # remove trailing /
+        res = res + (' 1' if self.player == "white" else ' 2') # add current player
+        res = res + ' 1' #TODO: we don't count moves currently (also change in symmetry_normalisator.py)
+        return res
 
     def reset(self):
         self.board = []
