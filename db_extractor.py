@@ -85,17 +85,55 @@ def get_ptn(game) -> str:
 def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, player_white: str = None, player_black: str = None):
     con = sqlite3.connect(f)
     con.row_factory = sqlite3.Row
-    games = con.execute(f"""
+    botlist = [
+        'Tiltak_Bot',
+        'TakticianBot',
+        'TakticianBotDev',
+        'TakkenBot',
+        'kriTakBot',
+        'robot',
+        'AaaarghBot',
+        'TakkerusBot',
+        'CrumBot',
+        'SlateBot',
+        'alphatak_bot',
+        'alphabot',
+        'IntuitionBot',
+        'Geust93',
+        'ShlktBot',
+        'Taik',
+        'VerekaiBot1',
+        'CobbleBot',
+        'AlphaTakBot_5x5',
+        'takkybot',
+        'BloodlessBot',
+        'TakkerBot',
+        'BeginnerBot',
+        'cutak_bot',
+        'FriendlyBot',
+        'antakonistbot',
+        'sTAKbot1',
+        'sTAKbot2',
+        'FPABot',
+        'DoubleStackBot',
+        'FlashBot',
+        'CairnBot'
+    ]
+    botlist = '("' + '","'.join(botlist) + '")'
+
+    games_query = f"""
         SELECT *, LENGTH(notation) - LENGTH(REPLACE(notation,',','')) - 1 AS numplies
         FROM games
         WHERE
             numplies>{num_plies} AND
             (rating_white >= {min_rating} AND
             rating_black >= {min_rating}) AND
-            {'' if player_white is None else f'player_white = "{player_white}" AND'}
-            {'' if player_black is None else f'player_black = "{player_black}" AND'}
+            player_white {f'NOT IN {botlist}' if player_white is None else f'= "{player_white}"'} AND
+            player_black {f'NOT IN {botlist}' if player_black is None else f'= "{player_black}"'} AND
             size = 6
-        ;""")
+        ;"""
+
+    games = con.execute(games_query)
 
     with open(o, 'w') as output_file:
         for i, row in enumerate(games):

@@ -21,10 +21,26 @@ app.config['JSON_SORT_KEYS'] = False
 def hello():
     return "hello"
 
+@app.route('/api/v1/game/<game_id>', methods=['get'])
+def getgame(game_id):
+    print(f'requested game with id: {game_id}')
+
+    select_game_sql = f"SELECT * FROM games WHERE playtak_id={game_id};"
+
+    db = sqlite3.connect('data/openings_s6_1200.db')
+    db.row_factory = sqlite3.Row
+    cur = db.cursor()
+    cur.execute(select_game_sql)
+    row = dict(cur.fetchone())
+
+    return row
+
+
+
 @app.route('/api/v1/opening/<tps>', methods=['GET'])
 def getposition(tps):
     tps = tps.replace('A', '/')
-    print(tps)
+    print(f'requested position with tps: {tps}')
     symmetry = symmetry_normalisator.get_tps_orientation(tps)
     sym_tps = symmetry_normalisator.transform_tps(tps, symmetry)
 
@@ -77,5 +93,40 @@ def getposition(tps):
         moves.append({"ptn": move, "white": next_row['wwins'], "black": next_row['bwins']})
 
     result['moves'] = moves
+
+    # get top games
+    select_games_sql = f"""
+            SELECT games.id, games.playtak_id, games.white, games.black, games.rating_white, games.rating_black,
+                game_position_xref.game_id, game_position_xref.position_id,
+                positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
+            FROM game_position_xref, games, positions
+            WHERE game_position_xref.position_id=positions.id
+                AND games.id = game_position_xref.game_id
+                AND positions.tps = '{sym_tps}'
+            ORDER BY AVG_rating DESC;"""
+    cur.execute(select_games_sql)
+    row = cur.fetchall()
+
+    all_games = []
+
+    for r in row:
+        all_games.append(dict(r))
+
+    all_games = all_games[0:min(4, len(all_games))]
+
+    result['games'] = []
+
+    for game in all_games:
+        result['games'].append({
+            'playtak_id': game['playtak_id'],
+            'white': {
+                'name': game['white'],
+                'rating': game['rating_white']
+                },
+            'black': {
+                'name': game['black'],
+                'rating': game['rating_black']
+                }
+            })
 
     return result

@@ -40,7 +40,7 @@ def add_ptn(ptn, dp: PositionProcessor, max_plies=sys.maxsize):
     tak = GameState(size)
 
     # add game to database
-    game_id = dp.add_game(playtak_id, size, white_name, black_name, ptn, result, rating_white, rating_black)
+    game_id = dp.add_game(size, playtak_id, white_name, black_name, ptn, result, rating_white, rating_black)
 
     # make all moves
     for i in range(0, len(all_moves)):
