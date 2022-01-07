@@ -41,13 +41,12 @@ def getgame(game_id):
 
 
 
-@app.route('/api/v1/opening/<tps>', methods=['GET'])
+@app.route('/api/v1/opening/<path:tps>', methods=['GET'])
 def getposition(tps):
-    tps = tps.replace('A', '/')
     print(f'requested position with tps: {tps}')
     # we don't care about move number:
     tps_l = tps.split(' ')
-    tps_l[2] = 1
+    tps_l[2] = '1'
     tps = ' '.join(tps_l)
     symmetry = symmetry_normalisator.get_tps_orientation(tps)
     sym_tps = symmetry_normalisator.transform_tps(tps, symmetry)
