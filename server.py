@@ -6,7 +6,7 @@ FLASK_APP=server.py flask run -h 127.0.0.1
 """
 
 import sqlite3
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import sys
 
 import symmetry_normalisator
@@ -32,8 +32,12 @@ def getgame(game_id):
     cur = db.cursor()
     cur.execute(select_game_sql)
     row = dict(cur.fetchone())
+    cur.close()
+    db.close()
 
-    return row
+    response = jsonify(row)
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
 
 
 
@@ -41,6 +45,10 @@ def getgame(game_id):
 def getposition(tps):
     tps = tps.replace('A', '/')
     print(f'requested position with tps: {tps}')
+    # we don't care about move number:
+    tps_l = tps.split(' ')
+    tps_l[2] = 1
+    tps = ' '.join(tps_l)
     symmetry = symmetry_normalisator.get_tps_orientation(tps)
     sym_tps = symmetry_normalisator.transform_tps(tps, symmetry)
 
@@ -129,4 +137,9 @@ def getposition(tps):
                 }
             })
 
-    return result
+    cur.close()
+    db.close()
+
+    response = jsonify(result)
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response

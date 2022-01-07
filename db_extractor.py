@@ -82,7 +82,7 @@ def get_ptn(game) -> str:
     return ptn
 
 
-def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, player_white: str = None, player_black: str = None):
+def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, player_white: str = None, player_black: str = None, start_id = 0):
     con = sqlite3.connect(f)
     con.row_factory = sqlite3.Row
     botlist = [
@@ -128,6 +128,7 @@ def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, pla
             numplies>{num_plies} AND
             (rating_white >= {min_rating} AND
             rating_black >= {min_rating}) AND
+            id > {start_id} AND
             player_white {f'NOT IN {botlist}' if player_white is None else f'= "{player_white}"'} AND
             player_black {f'NOT IN {botlist}' if player_black is None else f'= "{player_black}"'} AND
             size = 6
@@ -143,7 +144,7 @@ def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, pla
             output_file.write(get_ptn(r))
 
 
-def main(db_file, target_file, num_plies, num_games, min_rating, player_black=None, player_white=None):
+def main(db_file, target_file, num_plies, num_games, min_rating, player_black=None, player_white=None, start_id=0):
 
     # check if db file exists
     try:
@@ -153,4 +154,4 @@ def main(db_file, target_file, num_plies, num_games, min_rating, player_black=No
         print("File not accessible")
         sys.exit(2)
 
-    extract_ptn(db_file, target_file, num_plies, num_games, min_rating, player_white, player_black)
+    extract_ptn(db_file, target_file, num_plies, num_games, min_rating, player_white, player_black, start_id)

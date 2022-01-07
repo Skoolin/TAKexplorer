@@ -12,8 +12,9 @@ class PositionDataBase(PositionProcessor):
 
     def __init__(self):
         self.conn = None
+        self.max_id = 0
 
-    def create(self, db_file: str):
+    def open(self, db_file: str):
         create_tables_sql = ["""
         CREATE TABLE IF NOT EXISTS games (
             id integer PRIMARY KEY,
@@ -47,6 +48,22 @@ class PositionDataBase(PositionProcessor):
         """]
 
         try:
+            if os.path.exists(db_file):
+                self.conn = sqlite3.connect(db_file)
+                self.conn.row_factory = sqlite3.Row
+                cur = self.conn.cursor()
+
+                get_highest_id_sql = f"""
+                    SELECT MAX(playtak_id) AS max_id FROM games;
+                """
+                cur.execute(get_highest_id_sql)
+                row = cur.fetchone()
+
+                if row is not None:
+                    self.max_id = dict(row)['max_id']
+                    print(self.max_id)
+                self.conn.close()
+
             try:
                 os.remove(db_file)
             except FileNotFoundError:
@@ -64,6 +81,9 @@ class PositionDataBase(PositionProcessor):
             self.conn.row_factory = sqlite3.Row
         except sqlite3.Error as e:
             print(e)
+
+    def close(self):
+        self.conn.close()
 
     def add_position(self, game_id: int, move, result: str, tps: str, next_tps: Union[str, None], tak: GameState) -> int:
         curr = self.conn.cursor()

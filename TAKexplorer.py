@@ -56,14 +56,15 @@ def main(args):
             elif opt in ('-b', '--black'):
                 player_black = arg
 
-        db_extractor.main(db_file, ptn_file, num_plies, num_games, min_rating, player_black, player_white)
-
         db = PositionDataBase()
-        db.create(target_file)
+        db.open(target_file)
+
+        db_extractor.main(db_file, ptn_file, num_plies, num_games, min_rating, player_black, player_white, db.max_id)
 
         ptn_parser.main(ptn_file, db)
 
         db.conn.commit()
+        db.close()
 
     elif task == 'explore':
         data_collector.collector_main(argv[0])
