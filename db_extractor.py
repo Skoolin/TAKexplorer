@@ -126,14 +126,13 @@ def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, pla
         FROM games
         WHERE
             numplies>{num_plies} AND
-            (rating_white >= {min_rating} AND
-            rating_black >= {min_rating}) AND
+            rating_white >= {min_rating} AND
+            rating_black >= {min_rating} AND
             id > {start_id} AND
             player_white {f'NOT IN {botlist}' if player_white is None else f'= "{player_white}"'} AND
             player_black {f'NOT IN {botlist}' if player_black is None else f'= "{player_black}"'} AND
             size = 6
         ;"""
-
     games = con.execute(games_query)
 
     with open(o, 'w') as output_file:

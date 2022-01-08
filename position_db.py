@@ -60,8 +60,9 @@ class PositionDataBase(PositionProcessor):
                 row = cur.fetchone()
 
                 if row is not None:
-                    self.max_id = dict(row)['max_id']
-                    print(self.max_id)
+                    max_id = dict(row)['max_id']
+                    if max_id is not None:
+                        self.max_id = max_id
                 self.conn.close()
 
             try:

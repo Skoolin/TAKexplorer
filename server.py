@@ -5,17 +5,50 @@
 FLASK_APP=server.py flask run -h 127.0.0.1
 """
 
-import sqlite3
-from flask import Flask, request, jsonify
+
 import sys
+from collections import OrderedDict
+
+from flask import Flask, request, jsonify
+from flask_apscheduler import APScheduler
+import requests
+import sqlite3
 
 import symmetry_normalisator
 from tak import GameState
-
-from collections import OrderedDict
+import db_extractor
+import ptn_parser
+from position_db import PositionDataBase
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
+app.config['SCHEDULER_API_ENABLED'] = True
+
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
+
+# import dayly update of playtak database
+@scheduler.task('interval', id='import_playtak_games', seconds=86400, misfire_grace_time=900)
+def import_playtak_games():
+    url = 'https://www.playtak.com/games_anon.db'
+    r = requests.get(url)
+
+    db_file = 'data/games_anon.db'
+    ptn_file = 'data/games.ptn'
+
+    with open(db_file,'wb') as output_file:
+        output_file.write(r.content)
+
+    db = PositionDataBase()
+    db.open('data/openings_s6_1200.db')
+
+    db_extractor.main(db_file, ptn_file, 12, 10000, 1200, None, None, db.max_id)
+
+    ptn_parser.main(ptn_file, db)
+
+    db.conn.commit()
+    db.close()
 
 @app.route('/')
 def hello():
