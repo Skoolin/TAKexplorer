@@ -50,6 +50,9 @@ def import_playtak_games():
     db.conn.commit()
     db.close()
 
+# import games first time
+import_playtak_games()
+
 @app.route('/')
 def hello():
     return "hello"
