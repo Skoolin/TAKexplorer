@@ -8,6 +8,7 @@ FLASK_APP=server.py flask run -h 127.0.0.1
 
 import sys
 from collections import OrderedDict
+from tzlocal import get_localzone
 
 from flask import Flask, request, jsonify
 from flask_apscheduler import APScheduler
@@ -24,7 +25,9 @@ app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 app.config['SCHEDULER_API_ENABLED'] = True
 
-scheduler = APScheduler()
+local_tz = get_localzone()
+
+scheduler = APScheduler(timezone=local_tz)
 scheduler.init_app(app)
 scheduler.start()
 
