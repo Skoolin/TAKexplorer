@@ -10,7 +10,7 @@ import sys
 from collections import OrderedDict
 
 from flask import Flask, request, jsonify
-from flask_apscheduler import APScheduler
+#from flask_apscheduler import APScheduler
 import requests
 import sqlite3
 
@@ -22,14 +22,14 @@ from position_db import PositionDataBase
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
-app.config['SCHEDULER_API_ENABLED'] = True
+#app.config['SCHEDULER_API_ENABLED'] = True
 
-scheduler = APScheduler()
-scheduler.init_app(app)
-scheduler.start()
+#scheduler = APScheduler()
+#scheduler.init_app(app)
+#scheduler.start()
 
 # import dayly update of playtak database
-@scheduler.task('interval', id='import_playtak_games', seconds=86400, misfire_grace_time=900)
+#@scheduler.task('interval', id='import_playtak_games', seconds=86400, misfire_grace_time=900)
 def import_playtak_games():
 
     db_file = 'data/games_anon.db'
