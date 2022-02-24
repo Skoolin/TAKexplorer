@@ -36,9 +36,9 @@ def import_playtak_games():
     ptn_file = 'data/games.ptn'
 
     url = 'https://www.playtak.com/games_anon.db'
-#    r = requests.get(url)
-#    with open(db_file,'wb') as output_file:
-#        output_file.write(r.content)
+    r = requests.get(url)
+    with open(db_file,'wb') as output_file:
+        output_file.write(r.content)
 
     db = PositionDataBase()
     db.open('data/openings_s6_1200.db')
