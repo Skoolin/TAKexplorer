@@ -21,7 +21,11 @@ import db_extractor
 import ptn_parser
 from position_db import PositionDataBase
 
-os.mkdir("data")
+try:
+    print("creating data directory...")
+    os.mkdir("data")
+except FileExistsError as e:
+    print("data directory already exists")
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
@@ -39,6 +43,7 @@ def import_playtak_games():
     ptn_file = 'data/games.ptn'
 
     url = 'https://www.playtak.com/games_anon.db'
+    print("fetching newest playtak DB...")
     r = requests.get(url)
     with open(db_file,'wb') as output_file:
         output_file.write(r.content)
@@ -46,11 +51,15 @@ def import_playtak_games():
     db = PositionDataBase()
     db.open('data/openings_s6_1200.db')
 
+    print("extracting games...")
     db_extractor.main(db_file, ptn_file, 12, 10000, 1200, player_black="Alff", player_white=None, start_id=0)
 
+    print("building opening table...")
     ptn_parser.main(ptn_file, db)
 
     db.conn.commit()
+
+    print("done! now serving requests")
     db.close()
 
 # import games first time
