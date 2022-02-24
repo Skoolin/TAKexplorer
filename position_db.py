@@ -62,13 +62,13 @@ class PositionDataBase(PositionProcessor):
                 if row is not None:
                     max_id = dict(row)['max_id']
                     if max_id is not None:
+                        print("max game ID in previous DB: ", max_id)
                         self.max_id = max_id
             else:
                 self.conn = sqlite3.connect(db_file)
-
-            self.conn.row_factory = sqlite3.Row
-            for q in create_tables_sql:
-                self.conn.execute(q)
+                self.conn.row_factory = sqlite3.Row
+                for q in create_tables_sql:
+                    self.conn.execute(q)
         except sqlite3.Error as e:
             print(e)
 

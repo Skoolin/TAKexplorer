@@ -44,15 +44,15 @@ def import_playtak_games():
 
     url = 'https://www.playtak.com/games_anon.db'
     print("fetching newest playtak DB...")
-    r = requests.get(url)
-    with open(db_file,'wb') as output_file:
-        output_file.write(r.content)
+#    r = requests.get(url)
+#    with open(db_file,'wb') as output_file:
+#        output_file.write(r.content)
 
     db = PositionDataBase()
     db.open('data/openings_s6_1200.db')
 
     print("extracting games...")
-    db_extractor.main(db_file, ptn_file, 12, 10000, 1200, player_black=None, player_white=None, start_id=0)
+    db_extractor.main(db_file, ptn_file, 12, 100, 1200, player_black=None, player_white=None, start_id=db.max_id)
 
     print("building opening table...")
     ptn_parser.main(ptn_file, db)
