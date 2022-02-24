@@ -52,7 +52,7 @@ def import_playtak_games():
     db.open('data/openings_s6_1200.db')
 
     print("extracting games...")
-    db_extractor.main(db_file, ptn_file, 12, 10000, 1200, player_black="Alff", player_white=None, start_id=0)
+    db_extractor.main(db_file, ptn_file, 12, 10000, 1200, player_black=None, player_white=None, start_id=0)
 
     print("building opening table...")
     ptn_parser.main(ptn_file, db)
