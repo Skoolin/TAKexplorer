@@ -63,13 +63,9 @@ class PositionDataBase(PositionProcessor):
                     max_id = dict(row)['max_id']
                     if max_id is not None:
                         self.max_id = max_id
-                self.conn.close()
+            else:
+                self.conn = sqlite3.connect(db_file)
 
-            try:
-                os.remove(db_file)
-            except FileNotFoundError:
-                a = ''
-            self.conn = sqlite3.connect(db_file)
             self.conn.row_factory = sqlite3.Row
             for q in create_tables_sql:
                 self.conn.execute(q)
