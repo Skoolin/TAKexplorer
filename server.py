@@ -31,19 +31,19 @@ scheduler.start()
 # import dayly update of playtak database
 @scheduler.task('interval', id='import_playtak_games', seconds=86400, misfire_grace_time=900)
 def import_playtak_games():
-    url = 'https://www.playtak.com/games_anon.db'
-    r = requests.get(url)
 
     db_file = 'data/games_anon.db'
     ptn_file = 'data/games.ptn'
 
+    url = 'https://www.playtak.com/games_anon.db'
+    r = requests.get(url)
     with open(db_file,'wb') as output_file:
         output_file.write(r.content)
 
     db = PositionDataBase()
     db.open('data/openings_s6_1200.db')
 
-    db_extractor.main(db_file, ptn_file, 12, 10000, 1200, None, None, db.max_id)
+    db_extractor.main(db_file, ptn_file, 12, 10000, 1200, player_black="Alff", player_white=None, start_id=0)
 
     ptn_parser.main(ptn_file, db)
 
