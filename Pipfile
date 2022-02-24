@@ -7,7 +7,7 @@ name = "pypi"
 flask = "*"
 gunicorn = "*"
 tqdm = "*"
-flask-apscheduler = "*"
+flask-apscheduler = "3.6.3"
 requests = "*"
 
 [dev-packages]
