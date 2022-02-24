@@ -7,6 +7,7 @@ FLASK_APP=server.py flask run -h 127.0.0.1
 
 
 import sys
+import os
 from collections import OrderedDict
 
 from flask import Flask, request, jsonify
@@ -19,6 +20,8 @@ from tak import GameState
 import db_extractor
 import ptn_parser
 from position_db import PositionDataBase
+
+os.mkdir("data")
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
