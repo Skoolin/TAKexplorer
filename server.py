@@ -11,7 +11,7 @@ import os
 from collections import OrderedDict
 
 from flask import Flask, request, jsonify
-#from flask_apscheduler import APScheduler
+from flask_apscheduler import APScheduler
 import requests
 import sqlite3
 
@@ -29,14 +29,14 @@ except FileExistsError as e:
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
-#app.config['SCHEDULER_API_ENABLED'] = True
+app.config['SCHEDULER_API_ENABLED'] = True
 
-#scheduler = APScheduler()
-#scheduler.init_app(app)
-#scheduler.start()
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
 
 # import dayly update of playtak database
-#@scheduler.task('interval', id='import_playtak_games', seconds=86400, misfire_grace_time=900)
+@scheduler.task('cron', id='import_playtak_games', hour='5', misfire_grace_time=900)
 def import_playtak_games():
 
     db_file = 'data/games_anon.db'
@@ -44,15 +44,15 @@ def import_playtak_games():
 
     url = 'https://www.playtak.com/games_anon.db'
     print("fetching newest playtak DB...")
-#    r = requests.get(url)
-#    with open(db_file,'wb') as output_file:
-#        output_file.write(r.content)
+    r = requests.get(url)
+    with open(db_file,'wb') as output_file:
+        output_file.write(r.content)
 
     db = PositionDataBase()
     db.open('data/openings_s6_1200.db')
 
     print("extracting games...")
-    db_extractor.main(db_file, ptn_file, 12, 100, 1200, player_black=None, player_white=None, start_id=db.max_id)
+    db_extractor.main(db_file=db_file, target_file=ptn_file, num_plies=12, num_games=10000, min_rating=1200, player_black=None, player_white=None, start_id=db.max_id)
 
     print("building opening table...")
     ptn_parser.main(ptn_file, db)

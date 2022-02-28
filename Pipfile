@@ -5,10 +5,11 @@ name = "pypi"
 
 [packages]
 flask = "*"
-gunicorn = "*"
 tqdm = "*"
 flask-apscheduler = "*"
 requests = "*"
+apscheduler = "*"
+waitress = "*"
 
 [dev-packages]
 

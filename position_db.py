@@ -54,16 +54,20 @@ class PositionDataBase(PositionProcessor):
                 cur = self.conn.cursor()
 
                 get_highest_id_sql = f"""
-                    SELECT MAX(playtak_id) AS max_id FROM games;
+                    SELECT MAX(playtak_id) AS max_id, COUNT(ALL playtak_id) AS games_count FROM games;
                 """
                 cur.execute(get_highest_id_sql)
                 row = cur.fetchone()
 
                 if row is not None:
-                    max_id = dict(row)['max_id']
+                    row_dict = dict(row)
+                    max_id = row_dict['max_id']
+                    games_count = row_dict['games_count']
                     if max_id is not None:
-                        print("max game ID in previous DB: ", max_id)
+                        print("max game ID in loaded DB: ", max_id)
+                        print("number of games in loaded DB:", games_count)
                         self.max_id = max_id
+                cur.close()
             else:
                 self.conn = sqlite3.connect(db_file)
                 self.conn.row_factory = sqlite3.Row

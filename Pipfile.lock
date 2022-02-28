@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "732050bf8606a4a12d5efdc04e38fb07404fa92217d40b43b06157a7c3deb14c"
+            "sha256": "3eb12cb500d601c4463000d05df3c3f2346b712abc476ee4509bd7cf38c05969"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -18,11 +18,11 @@
     "default": {
         "apscheduler": {
             "hashes": [
-                "sha256:236dbf7244200ffc79c6c0b9ff7d2ed10e7e985f37f48d4a23f4142f4967dcb5",
-                "sha256:f8a3e6e4d178de40fdbd5a3eefcc217588fc7f42f443e2335bb2dc29daf99357"
+                "sha256:65e6574b6395498d371d045f2a8a7e4f7d50c6ad21ef7313d15b1c7cf20df1e3",
+                "sha256:ddc25a0ddd899de44d7f451f4375fb971887e65af51e41e5dcf681f59b8b2c9a"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
-            "version": "==3.9.0.post1"
+            "index": "pypi",
+            "version": "==3.9.1"
         },
         "certifi": {
             "hashes": [
@@ -69,14 +69,6 @@
             ],
             "index": "pypi",
             "version": "==1.12.3"
-        },
-        "gunicorn": {
-            "hashes": [
-                "sha256:9dcc4547dbb1cb284accfb15ab5667a0e5d1881cc443e0677b4882a4067a807e",
-                "sha256:e0a968b5ba15f8a328fdfd7ab1fcb5af4470c28aaf7e55df02a99bc13138e6e8"
-            ],
-            "index": "pypi",
-            "version": "==20.1.0"
         },
         "idna": {
             "hashes": [
@@ -197,11 +189,11 @@
         },
         "tqdm": {
             "hashes": [
-                "sha256:8dd278a422499cd6b727e6ae4061c40b48fce8b76d1ccbf5d34fca9b7f925b0c",
-                "sha256:d359de7217506c9851b7869f3708d8ee53ed70a1b8edbba4dbcb47442592920d"
+                "sha256:1d9835ede8e394bb8c9dcbffbca02d717217113adc679236873eeaac5bc0b3cd",
+                "sha256:e643e071046f17139dea55b880dc9b33822ce21613b4a4f5ea57f202833dbc29"
             ],
             "index": "pypi",
-            "version": "==4.62.3"
+            "version": "==4.63.0"
         },
         "tzdata": {
             "hashes": [
@@ -226,6 +218,14 @@
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4' and python_version < '4'",
             "version": "==1.26.8"
+        },
+        "waitress": {
+            "hashes": [
+                "sha256:29af5a53e9fb4e158f525367678b50053808ca6c21ba585754c77d790008c746",
+                "sha256:69e1f242c7f80273490d3403c3976f3ac3b26e289856936d1f620ed48f321897"
+            ],
+            "index": "pypi",
+            "version": "==2.0.0"
         },
         "werkzeug": {
             "hashes": [
