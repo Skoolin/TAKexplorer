@@ -8,6 +8,7 @@ FLASK_APP=server.py flask run -h 127.0.0.1
 
 import sys
 import os
+import time
 from collections import OrderedDict
 
 from flask import Flask, request, jsonify
@@ -40,13 +41,22 @@ scheduler.start()
 def import_playtak_games():
 
     db_file = 'data/games_anon.db'
+
     ptn_file = 'data/games.ptn'
 
     url = 'https://www.playtak.com/games_anon.db'
-    print("fetching newest playtak DB...")
-    r = requests.get(url)
-    with open(db_file,'wb') as output_file:
-        output_file.write(r.content)
+    if not os.path.exists(db_file) or (time.time() - os.stat(db_file).st_mtime) > 36000:
+        print("fetching newest playtak DB...")
+        try:
+            r = requests.get(url)
+            with open(db_file,'wb') as output_file:
+                output_file.write(r.content)
+        except:
+            print("Cannot reach playtak server.")
+            if not os.path.exists(db_file):
+                print("no saved games database. exiting.")
+                raise Exception("can't download playtak database")
+            print("Using potentially outdated save of games database.")
 
     db = PositionDataBase()
     db.open('data/openings_s6_1200.db')
@@ -105,7 +115,15 @@ def getposition(tps):
     db.row_factory = sqlite3.Row
     cur = db.cursor()
     cur.execute(select_results_sql)
-    row = dict(cur.fetchone())
+
+    row = cur.fetchone()
+    if row == None:
+        result = {'white': 0, 'black': 0, 'moves': [], 'games': []}
+        response = jsonify(result)
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+
+    row = dict(row)
 
     pos_id = row['id']
 
@@ -151,7 +169,7 @@ def getposition(tps):
 
     # get top games
     select_games_sql = f"""
-            SELECT games.id, games.playtak_id, games.white, games.black, games.rating_white, games.rating_black,
+            SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.rating_white, games.rating_black,
                 game_position_xref.game_id, game_position_xref.position_id,
                 positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
             FROM game_position_xref, games, positions
@@ -174,6 +192,7 @@ def getposition(tps):
     for game in all_games:
         result['games'].append({
             'playtak_id': game['playtak_id'],
+            'result': game['result'],
             'white': {
                 'name': game['white'],
                 'rating': game['rating_white']
