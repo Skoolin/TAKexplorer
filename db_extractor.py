@@ -87,6 +87,7 @@ def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, pla
     con.row_factory = sqlite3.Row
     botlist = [
         'WilemBot',
+        'TopazBot',
         'Tiltak_Bot',
         'TakticianBot',
         'TakticianBotDev',
