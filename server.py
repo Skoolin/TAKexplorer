@@ -1,23 +1,14 @@
 #!/usr/bin/env python3
 
-"""See flask.palletsprojects.com.  This used Flask 1.1.1.  Run with:
-
-FLASK_APP=server.py flask run -h 127.0.0.1
-"""
-
-
-import sys
 import os
 import time
-from collections import OrderedDict
 
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify
 from flask_apscheduler import APScheduler
 import requests
 import sqlite3
 
 import symmetry_normalisator
-from tak import GameState
 import db_extractor
 import ptn_parser
 from position_db import PositionDataBase
@@ -83,12 +74,13 @@ def hello():
 def getgame(game_id):
     print(f'requested game with id: {game_id}')
 
-    select_game_sql = f"SELECT * FROM games WHERE playtak_id={game_id};"
+    select_game_sql = "SELECT * FROM games WHERE playtak_id=:game_id;"
 
     db = sqlite3.connect('data/openings_s6_1200.db')
     db.row_factory = sqlite3.Row
     cur = db.cursor()
-    cur.execute(select_game_sql)
+    cur.execute(select_game_sql, { "game_id": game_id })
+
     row = dict(cur.fetchone())
     cur.close()
     db.close()
@@ -109,12 +101,12 @@ def getposition(tps):
     symmetry = symmetry_normalisator.get_tps_orientation(tps)
     sym_tps = symmetry_normalisator.transform_tps(tps, symmetry)
 
-    select_results_sql = f"SELECT * FROM positions WHERE tps='{sym_tps}';"
+    select_results_sql = "SELECT * FROM positions WHERE tps=:sym_tps;"
 
     db = sqlite3.connect('data/openings_s6_1200.db')
     db.row_factory = sqlite3.Row
     cur = db.cursor()
-    cur.execute(select_results_sql)
+    cur.execute(select_results_sql, { 'sym_tps': sym_tps })
 
     row = cur.fetchone()
     if row == None:
@@ -151,9 +143,9 @@ def getposition(tps):
         move_id = r[1]
         if move_id in real_positions:
             continue
-        select_results_sql = f"SELECT * FROM positions WHERE id='{move_id}';"
+        select_results_sql = "SELECT * FROM positions WHERE id=:move_id;"
 
-        cur.execute(select_results_sql)
+        cur.execute(select_results_sql, { 'move_id': move_id })
         exe_res = cur.fetchone()
         if exe_res is None:
             continue
@@ -168,16 +160,16 @@ def getposition(tps):
     result['moves'] = moves
 
     # get top games
-    select_games_sql = f"""
+    select_games_sql = """
             SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.rating_white, games.rating_black,
                 game_position_xref.game_id, game_position_xref.position_id,
                 positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
             FROM game_position_xref, games, positions
             WHERE game_position_xref.position_id=positions.id
                 AND games.id = game_position_xref.game_id
-                AND positions.tps = '{sym_tps}'
+                AND positions.tps = :sym_tps
             ORDER BY AVG_rating DESC;"""
-    cur.execute(select_games_sql)
+    cur.execute(select_games_sql, { 'sym_tps': sym_tps })
     row = cur.fetchall()
 
     all_games = []
