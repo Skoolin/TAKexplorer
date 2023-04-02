@@ -1,21 +1,43 @@
 # TAKexplorer
-A tak opening DB generator and explorer (Currently only supports games with board size 6)
+A tak opening DB generator and explorer that serves via an API.
 
-To run you need to supply an opening database to explore:  
-`TAKexplorer.py explore <database file name>`
+Currently only supports games with board size of 6.
 
-If you want to stare at a red progress bar for two hours, you can generate the database by yourself as well:  
-`TAKexplorer extract -i <database file> -o <output file> [ -p <minimum plies> ] [ -n <maximum games> ] [ -r <minimum rating> ]`
 
-Yes, I know, it should not take that long and both my python code and my SQL queries are ugly, deal with it xD
-
-Every week a new database with all players rating 1200+ is generated if you want to use it instead of generating your own: [openings_s6_1200.db](https://github.com/Skoolin/TAKexplorer/releases/latest/download/openings_s6_1200.db).
-
-You need to have pillow and tqdm installed:  
-`pip install pillow tqdm`
-
-Also, you need grupplers wonderful TPStoPNG tool:  
-https://github.com/gruppler/TPS-Ninja
-
-In the Wiki I started to write up an index of popular openings: https://github.com/Skoolin/TAKexplorer/wiki  
+## Opening theory
+In the Wiki I started to write up an index of popular openings: https://github.com/Skoolin/TAKexplorer/wiki
 Feel free to discuss, analyse and add to them!
+
+They can also be found [in the Tak wiki](http://tak-studies.wikidot.com/wiki:opening-catalogue).
+
+## API
+Please check `./server.py` for details
+
+## Setup
+### Requirements
+- Python `>= 3.9`
+- pip
+
+### Install dependencies
+```sh
+pip install pipenv
+pipenv install
+```
+
+### Run API server
+This will automatically download the latest database from playtak.com and update the openings database accordingly.
+
+```sh
+pipenv run waitress-serve --listen HOST:PORT wsgi:app` # (e.g. `HOST:PORT`=`0.0.0.0:5000`)
+```
+
+Depending on your location and connection downloading the database may be very slow. If that's the case, consider getting it from another source.
+
+Deriving the exploration database the first time may take a few minutes. Updates should be quick.
+
+### Automatic reloading for development
+```sh
+pipenv shell # enter environment
+pip install hupper
+hupper -m waitress --listen HOST:PORT wsgi:app # automatically restarts server on filechange
+```
