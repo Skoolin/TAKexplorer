@@ -10,11 +10,15 @@ from tak import GameState
 
 class PositionDataBase(PositionProcessor):
 
-    def __init__(self):
+    def __init__(self, db_file_name: str):
+        print("!!!! INIT")
+        assert db_file_name
         self.conn = None
         self.max_id = 0
+        self.db_file_name = db_file_name
 
-    def open(self, db_file: str):
+    def __enter__(self):
+        print("___enter__")
         create_tables_sql = ["""
         CREATE TABLE IF NOT EXISTS games (
             id integer PRIMARY KEY,
@@ -48,12 +52,12 @@ class PositionDataBase(PositionProcessor):
         """]
 
         try:
-            if os.path.exists(db_file):
-                self.conn = sqlite3.connect(db_file)
+            if os.path.exists(self.db_file_name):
+                self.conn = sqlite3.connect(self.db_file_name)
                 self.conn.row_factory = sqlite3.Row
                 cur = self.conn.cursor()
 
-                get_highest_id_sql = f"""
+                get_highest_id_sql = """
                     SELECT MAX(playtak_id) AS max_id, COUNT(ALL playtak_id) AS games_count FROM games;
                 """
                 cur.execute(get_highest_id_sql)
@@ -68,23 +72,23 @@ class PositionDataBase(PositionProcessor):
                         print("number of games in loaded DB:", games_count)
                         self.max_id = max_id
                 cur.close()
-            else:
-                self.conn = sqlite3.connect(db_file)
-                self.conn.row_factory = sqlite3.Row
-                for q in create_tables_sql:
-                    self.conn.execute(q)
-        except sqlite3.Error as e:
-            print(e)
+                return self
 
-    def connect(self, db_file: str):
-        try:
-            self.conn = sqlite3.connect(db_file)
+            self.conn = sqlite3.connect(self.db_file_name)
             self.conn.row_factory = sqlite3.Row
-        except sqlite3.Error as e:
-            print(e)
+            for query in create_tables_sql:
+                self.conn.execute(query)
+            return self
 
-    def close(self):
+        except sqlite3.Error as exc:
+            print(exc)
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        print("__EXIT__")
         self.conn.close()
+        self.conn = None
+
 
     def add_position(self, game_id: int, move, result: str, tps: str, next_tps: Union[str, None], tak: GameState) -> int:
         curr = self.conn.cursor()
@@ -136,15 +140,15 @@ class PositionDataBase(PositionProcessor):
         position_id = row_dict['id']
 
         if result[0] != '0':  # white win!
-            curr.execute(f"UPDATE positions SET wwins=wwins+1 WHERE id={position_id};")
+            curr.execute("UPDATE positions SET wwins=wwins+1 WHERE id=:position_id;", { 'position_id': position_id })
         if result[2] != '0':  # black win!
-            curr.execute(f"UPDATE positions SET bwins=bwins+1 WHERE id={position_id};")
+            curr.execute("UPDATE positions SET bwins=bwins+1 WHERE id=:position_id;", { 'position_id': position_id })
 
         # update the game-move crossreference table
-        curr.execute(f"""
-            INSERT INTO game_position_xref (game_id, position_id)
-            VALUES ({game_id}, {position_id});
-        """)
+        curr.execute(
+            "INSERT INTO game_position_xref (game_id, position_id) VALUES (:game_id, :position_id);",
+            { 'game_id': game_id, 'position_id': position_id }
+        )
 
         # if a move is given also update the move table
         if move is not None:
@@ -170,9 +174,12 @@ class PositionDataBase(PositionProcessor):
                 moves_list.append([move, str(next_pos_id), '1'])
 
             # transform moves_list into db string format
-            position_moves = ';'.join(list(map(lambda x: ','.join(x), moves_list)))
+            position_moves = ';'.join(list(map(','.join, moves_list)))
 
-            curr.execute(f"""UPDATE positions SET moves='{position_moves}' WHERE id={position_id}""")
+            curr.execute(
+                "UPDATE positions SET moves=:position_moves WHERE id=:position_id",
+                { 'position_moves': position_moves, 'position_id': position_id }
+            )
 
         return own_symmetry
 
@@ -180,24 +187,29 @@ class PositionDataBase(PositionProcessor):
         for line in self.conn.iterdump():
             print(line)
 
-    def add_game(self, size: int, playtak_id: int, white_name: str, black_name: str, ptn: str, result: str, rating_white: int, rating_black: int) -> int:
+    def add_game(
+            self,
+            size: int,
+            playtak_id: int,
+            white_name: str,
+            black_name: str,
+            ptn: str,
+            result: str,
+            rating_white: int,
+            rating_black: int
+    ) -> int:
         insert_game_data_sql = f"""
         INSERT INTO games (playtak_id, size, white, black, result, ptn, rating_white, rating_black)
         VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', '{ptn}', {rating_white}, {rating_black});
         """
-        get_game_idx_sql = f"""
-        SELECT id FROM games WHERE ptn = '{ptn}';
-        """
+        get_game_idx_sql = "SELECT id FROM games WHERE ptn = :ptn;"
         curr = self.conn.cursor()
         curr.execute(insert_game_data_sql)
-        curr.execute(get_game_idx_sql)
+        curr.execute(get_game_idx_sql, { 'ptn': ptn })
         res = dict(curr.fetchone())['id']
         return res
 
     def create_position_entry(self, tps: str):
-        insert_position_data_sql = f"""
-        INSERT INTO positions (tps, wwins, bwins, moves)
-        VALUES ('{tps}', 0, 0, '');
-        """
+        insert_position_data_sql = "INSERT INTO positions (tps, wwins, bwins, moves) VALUES (:tps, 0, 0, '');"
         curr = self.conn.cursor()
-        curr.execute(insert_position_data_sql)
+        curr.execute(insert_position_data_sql, { 'tps': tps })

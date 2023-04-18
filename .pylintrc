@@ -1,0 +1,17 @@
+[MASTER]
+
+[MESSAGES CONTROL]
+disable=missing-function-docstring,
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-many-arguments,
+
+[FORMAT]
+max-line-length=140
+
+[BASIC]
+good-names=db,i,c,s,a,b,o,dp,f,v,
+
+# Bad variable names which should always be refused, separated by a comma
+bad-names=foo,bar,
