@@ -1,5 +1,5 @@
 import json
-from typing import Union
+from typing import Literal, Optional, Union
 
 from position_processor import PositionProcessor
 from tak import GameState
@@ -8,8 +8,8 @@ from tak import GameState
 class StatisticsGenerator(PositionProcessor):
     def __init__(self, target_file: str):
         self.target_file = target_file
-        self.ply = None
-        self.result = None
+        self.ply: int = 0
+        self.result: Optional[Literal['draw', 'white', 'black']] = None
         self.w_has_hard_cap = False
         self.b_has_hard_cap = False
         self.all_games = {'white': 0, 'black': 0, 'draw': 0}

@@ -53,7 +53,7 @@ def import_playtak_games():
     ):
         print("Fetching latest playtak games DB...")
         try:
-            with requests.get(url) as request, open(playtak_games_db,'wb') as output_file:
+            with requests.get(url, timeout=None) as request, open(playtak_games_db,'wb') as output_file:
                 output_file.write(request.content)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             print("Cannot reach playtak server.")
@@ -78,7 +78,7 @@ def import_playtak_games():
         print("building opening table...")
         ptn_parser.main(games, pos_db, max_plies=MAX_PLIES)
 
-        pos_db.conn.commit()
+        pos_db.commit()
 
         print("done! now serving requests")
 

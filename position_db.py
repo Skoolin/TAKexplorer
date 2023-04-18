@@ -1,7 +1,7 @@
 import os
 
 import sqlite3
-from typing import Union
+from typing import Optional, Union
 
 import symmetry_normalisator
 from position_processor import PositionProcessor
@@ -13,42 +13,41 @@ class PositionDataBase(PositionProcessor):
     def __init__(self, db_file_name: str):
         print("!!!! INIT")
         assert db_file_name
-        self.conn = None
+        self.conn: Optional[sqlite3.Connection] = None
         self.max_id = 0
         self.db_file_name = db_file_name
 
     def __enter__(self):
-        print("___enter__")
         create_tables_sql = ["""
-        CREATE TABLE IF NOT EXISTS games (
-            id integer PRIMARY KEY,
-            playtak_id integer,
-            size integer,
-            white text NOT NULL,
-            black text NOT NULL,
-            result text NOT NULL,
-            ptn text NOT NULL,
-            rating_white integer DEFAULT 1000,
-            rating_black integer DEFAULT 1000
-        );
-        """,
-                             """
-        CREATE TABLE IF NOT EXISTS positions (
-            id integer PRIMARY KEY,
-            tps text UNIQUE,
-            bwins integer,
-            wwins integer,
-            moves text
-        );
-        """,
-                             """
-        CREATE TABLE IF NOT EXISTS game_position_xref (
-            id integer PRIMARY KEY,
-            game_id integer,
-            position_id integer,
-            FOREIGN KEY (game_id) REFERENCES games(id),
-            FOREIGN KEY (position_id) REFERENCES positions(id)
-        );
+            CREATE TABLE IF NOT EXISTS games (
+                id integer PRIMARY KEY,
+                playtak_id integer,
+                size integer,
+                white text NOT NULL,
+                black text NOT NULL,
+                result text NOT NULL,
+                ptn text NOT NULL,
+                rating_white integer DEFAULT 1000,
+                rating_black integer DEFAULT 1000
+            );
+            """,
+                                """
+            CREATE TABLE IF NOT EXISTS positions (
+                id integer PRIMARY KEY,
+                tps text UNIQUE,
+                bwins integer,
+                wwins integer,
+                moves text
+            );
+            """,
+                                """
+            CREATE TABLE IF NOT EXISTS game_position_xref (
+                id integer PRIMARY KEY,
+                game_id integer,
+                position_id integer,
+                FOREIGN KEY (game_id) REFERENCES games(id),
+                FOREIGN KEY (position_id) REFERENCES positions(id)
+            );
         """]
 
         try:
@@ -85,12 +84,16 @@ class PositionDataBase(PositionProcessor):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        print("__EXIT__")
-        self.conn.close()
-        self.conn = None
+        if self.conn is not None:
+            self.conn.close()
+            self.conn = None
 
+    def commit(self):
+        assert self.conn is not None
+        self.conn.commit()
 
     def add_position(self, game_id: int, move, result: str, tps: str, next_tps: Union[str, None], tak: GameState) -> int:
+        assert self.conn is not None
         curr = self.conn.cursor()
 
         # normalize for symmetries
@@ -184,6 +187,7 @@ class PositionDataBase(PositionProcessor):
         return own_symmetry
 
     def dump(self):
+        assert self.conn is not None
         for line in self.conn.iterdump():
             print(line)
 
@@ -198,9 +202,11 @@ class PositionDataBase(PositionProcessor):
             rating_white: int,
             rating_black: int
     ) -> int:
+        assert self.conn is not None
+
         insert_game_data_sql = f"""
-        INSERT INTO games (playtak_id, size, white, black, result, ptn, rating_white, rating_black)
-        VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', '{ptn}', {rating_white}, {rating_black});
+            INSERT INTO games (playtak_id, size, white, black, result, ptn, rating_white, rating_black)
+            VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', '{ptn}', {rating_white}, {rating_black});
         """
         get_game_idx_sql = "SELECT id FROM games WHERE ptn = :ptn;"
         curr = self.conn.cursor()
@@ -210,6 +216,8 @@ class PositionDataBase(PositionProcessor):
         return res
 
     def create_position_entry(self, tps: str):
+        assert self.conn is not None
+
         insert_position_data_sql = "INSERT INTO positions (tps, wwins, bwins, moves) VALUES (:tps, 0, 0, '');"
         curr = self.conn.cursor()
         curr.execute(insert_position_data_sql, { 'tps': tps })
