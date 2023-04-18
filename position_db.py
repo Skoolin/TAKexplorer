@@ -1,5 +1,4 @@
 import os
-
 import sqlite3
 from typing import Optional, Union
 
@@ -11,7 +10,6 @@ from tak import GameState
 class PositionDataBase(PositionProcessor):
 
     def __init__(self, db_file_name: str):
-        print("!!!! INIT")
         assert db_file_name
         self.conn: Optional[sqlite3.Connection] = None
         self.max_id = 0
