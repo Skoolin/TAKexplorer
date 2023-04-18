@@ -1,27 +1,47 @@
 #!/usr/bin/env python3
 
 import os
-from datetime import timedelta
-import time
 import sqlite3
+import time
+from dataclasses import dataclass
+from datetime import timedelta
+from typing import Literal
 
 import requests
 from flask import Flask, jsonify
 from flask_apscheduler import APScheduler
 
-import symmetry_normalisator
-from symmetry_normalisator import TpsSymmetry
-from db_extractor import extract_ptn
 import ptn_parser
+import symmetry_normalisator
+from db_extractor import extract_ptn, get_ptn
 from position_db import PositionDataBase
+from symmetry_normalisator import TpsSymmetry
 
-ANALYZED_OPENINGS_DB_FILE = 'data/openings_s6_1200.db'
+DATA_DIR = 'data'
+PLAYTAK_GAMES_DB = os.path.join(DATA_DIR, 'games_anon.db')
 MAX_GAME_EXAMPLES = 4
 MAX_SUGGESTED_MOVES = 20
 MAX_PLIES = 30
 NUM_PLIES = 12
 NUM_GAMES = 10_000
 MIN_RATING = 1200
+
+@dataclass
+class OpeningsDbConfig:
+    min_rating: int
+    include_bot_games: bool
+    size: Literal[6] = 6
+
+    @property
+    def db_file_name(self):
+        bots_text = "bots" if self.include_bot_games else "nobots"
+        file_name = f"openings_s{self.size}_{self.min_rating}_{bots_text}.db"
+        return os.path.join(DATA_DIR, file_name)
+
+openings_db_configs = [
+    OpeningsDbConfig(min_rating=1200, include_bot_games=False, size=6),
+    OpeningsDbConfig(min_rating=1700, include_bot_games=True, size=6),
+]
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
@@ -40,79 +60,97 @@ def to_symmetric_tps(tps: str) -> tuple[str, TpsSymmetry]:
     return sym_tps, symmetry
 
 
-# import dayly update of playtak database
-@scheduler.task('cron', id='import_playtak_games', hour='5', misfire_grace_time=900)
-def import_playtak_games():
-
-    playtak_games_db = 'data/games_anon.db'
-
-    url = 'https://www.playtak.com/games_anon.db'
+def download_playtak_db(url: str, destination: str):
     if (
-        not os.path.exists(playtak_games_db)
-        or (time.time() - os.stat(playtak_games_db).st_mtime) > timedelta(hours=10).seconds
+        not os.path.exists(destination)
+        or (time.time() - os.stat(destination).st_mtime) > timedelta(hours=10).seconds
     ):
         print("Fetching latest playtak games DB...")
         try:
-            with requests.get(url, timeout=None) as request, open(playtak_games_db,'wb') as output_file:
-                output_file.write(request.content)
+            with requests.get(url, timeout=None) as requ, open(destination,'wb') as output_file:
+                output_file.write(requ.content)
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            print("Cannot reach playtak server.")
-            if not os.path.exists(playtak_games_db):
-                print("no saved games database. exiting.")
+            print("Cannot reach playtak server")
+            if not os.path.exists(destination):
+                print("No saved games database. exiting.")
                 raise Exception("Failed to download playtak games database") from exc # pylint: disable=broad-exception-raised
             print("Using potentially outdated save of games database.")
 
-    with PositionDataBase(ANALYZED_OPENINGS_DB_FILE) as pos_db:
-        print("extracting games...")
+def update_openings_db(playtak_db: str, config: OpeningsDbConfig):
+    print(f"extracting games from {playtak_db} to {config.db_file_name}")
+    with PositionDataBase(config.db_file_name) as pos_db:
         games = extract_ptn(
-            db_file=playtak_games_db,
+            db_file=PLAYTAK_GAMES_DB,
             num_plies=NUM_PLIES,
             num_games=NUM_GAMES,
-            min_rating=MIN_RATING,
+            min_rating=config.min_rating,
             player_white=None,
             player_black=None,
             start_id=pos_db.max_id,
-            exclude_bots=True,
+            exclude_bots=not config.include_bot_games,
         )
 
         print("building opening table...")
         ptn_parser.main(games, pos_db, max_plies=MAX_PLIES)
-
         pos_db.commit()
 
-        print("done! now serving requests")
+        print("...done!")
+
+# import dayly update of playtak database
+@scheduler.task('cron', id='import_playtak_games', hour='17', minute="10", misfire_grace_time=900)
+def import_playtak_games():
+    download_playtak_db('https://www.playtak.com/games_anon.db', PLAYTAK_GAMES_DB)
+
+    for config in openings_db_configs:
+        update_openings_db(PLAYTAK_GAMES_DB, config)
+    print(f"updated {len(openings_db_configs)} opening dbs")
 
 @app.route('/')
 def hello():
     return "hello"
 
+@app.route('/api/v1/databases')
+def options():
+    response = jsonify(openings_db_configs)
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
 @app.route('/api/v1/game/<game_id>', methods=['get'])
 def getgame(game_id):
-    print(f'requested game with id: {game_id}')
+    # opening_database_config = openings_db_configs[database_id]
+    # print(f'requested game from {opening_database_config.db_file_name} with id: {game_id}')
 
-    select_game_sql = "SELECT * FROM games WHERE playtak_id=:game_id;"
-
-    with sqlite3.connect(ANALYZED_OPENINGS_DB_FILE) as db:
+    select_game_sql = "SELECT * FROM games WHERE id=:game_id;"
+    with sqlite3.connect(PLAYTAK_GAMES_DB) as db:
         db.row_factory = sqlite3.Row
         cur = db.cursor()
         cur.execute(select_game_sql, { "game_id": game_id })
 
-        row = dict(cur.fetchone())
+        game = dict(cur.fetchone())
+        game['ptn'] = get_ptn(game)
+
         cur.close()
 
-    response = jsonify(row)
+    response = jsonify(game)
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
 @app.route('/api/v1/opening/<path:tps>', methods=['GET'])
-def get_position(tps):
-    print(f'requested position with tps: {tps}')
+def get_position_default_db(tps):
+    """This exists only to continue supporting the old API with no database ID specified"""
+    return get_position(database_id=0, tps=tps)
+
+@app.route('/api/v1/opening/<int:database_id>/<path:tps>', methods=['GET'])
+def get_position(database_id: int, tps: str):
+    config = openings_db_configs[database_id]
+    print(f'requested position from {config.db_file_name} with tps: {tps}')
+
     # we don't care about move number:
     sym_tps, symmetry = to_symmetric_tps(tps)
 
     select_results_sql = "SELECT * FROM positions WHERE tps=:sym_tps;"
 
-    with sqlite3.connect(ANALYZED_OPENINGS_DB_FILE) as db:
+    with sqlite3.connect(config.db_file_name) as db:
         db.row_factory = sqlite3.Row
         cur = db.cursor() # with closing(db.cursor()) as cur:
         cur.execute(select_results_sql, { 'sym_tps': sym_tps })
@@ -133,10 +171,6 @@ def get_position(tps):
 
         moves_list = list(map(lambda x: x.split(','), position_moves))
         moves_list.sort(key=lambda x: int(x[2]), reverse=True)
-
-        result = {}
-        result['white'] = row['wwins']
-        result['black'] = row['bwins']
 
         real_positions = []
         moves = []
@@ -160,7 +194,6 @@ def get_position(tps):
 
             moves.append({"ptn": move, "white": next_row['wwins'], "black": next_row['bwins']})
 
-        result['moves'] = moves
 
         # get top games
         select_games_sql = """
@@ -176,7 +209,13 @@ def get_position(tps):
         cur.execute(select_games_sql, { 'sym_tps': sym_tps, 'limit': MAX_GAME_EXAMPLES })
         game_examples = list(map(dict, cur.fetchall()))
 
-        result['games'] = []
+        result = {
+            'white': row['wwins'],
+            'black': row['bwins'],
+            'config': config,
+            'moves': moves,
+            'games': [],
+        }
 
         for game in game_examples:
             result['games'].append({
@@ -201,9 +240,9 @@ def get_position(tps):
 
 try:
     print("creating data directory...")
-    os.mkdir("data")
+    os.mkdir(DATA_DIR)
 except FileExistsError as e:
     print("data directory already exists")
 
-# import games first time
-import_playtak_games()
+# import new games if necessary (or do the initial import) asynchronously
+scheduler.add_job("initial_import", import_playtak_games)
