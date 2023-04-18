@@ -1,36 +1,71 @@
-import sys
-
 import sqlite3
 from xmlrpc.client import DateTime
 
+BOTLIST = [
+    'WilemBot',
+    'TopazBot',
+    'Tiltak_Bot',
+    'TakticianBot',
+    'TakticianBotDev',
+    'TakkenBot',
+    'kriTakBot',
+    'robot',
+    'AaaarghBot',
+    'TakkerusBot',
+    'CrumBot',
+    'SlateBot',
+    'alphatak_bot',
+    'alphabot',
+    'IntuitionBot',
+    'Geust93',
+    'ShlktBot',
+    'Taik',
+    'VerekaiBot1',
+    'CobbleBot',
+    'AlphaTakBot_5x5',
+    'takkybot',
+    'BloodlessBot',
+    'TakkerBot',
+    'BeginnerBot',
+    'cutak_bot',
+    'FriendlyBot',
+    'antakonistbot',
+    'sTAKbot1',
+    'sTAKbot2',
+    'FPABot',
+    'DoubleStackBot',
+    'FlashBot',
+    'CairnBot'
+]
+BOTNAMES = '("' + '","'.join(BOTLIST) + '")'
 
 def get_header(key: str, val: str):
     return f'[{key} "{val}"]\n'
 
 
 def convert_move(move: str):
-        spl = move.split(' ')
-        t = spl[0]
-        if t == 'P':
-            # check whether it is a flat or special (C, W) stone
-            res = (spl[2].replace('W', 'S') if len(spl) > 2 else '')
-            return res + spl[1].lower()
-        elif t == 'M':
-            spl[3] = ''.join(spl[3:])
-            # get the number of stones picked up
-            res = str(sum(map(int, spl[3])))
-            # get the starting position
-            res += spl[1].lower()
+    spl = move.split(' ')
+    move_type_char = spl[0]
+    if move_type_char == 'P':
+        # check whether it is a flat or special (C, W) stone
+        res = (spl[2].replace('W', 'S') if len(spl) > 2 else '')
+        return res + spl[1].lower()
+    if move_type_char == 'M':
+        spl[3] = ''.join(spl[3:])
+        # get the number of stones picked up
+        res = str(sum(map(int, spl[3])))
+        # get the starting position
+        res += spl[1].lower()
 
-            # get the move direction:
-            if spl[1][0] == spl[2][0]:  # move up or down
-                res += ('+' if spl[1][1] < spl[2][1] else '-')
-            else:                       # move left or right
-                res += ('>' if spl[1][0] < spl[2][0] else '<')
+        # get the move direction:
+        if spl[1][0] == spl[2][0]:  # move up or down
+            res += ('+' if spl[1][1] < spl[2][1] else '-')
+        else:                       # move left or right
+            res += ('>' if spl[1][0] < spl[2][0] else '<')
 
-            # get the stones dropped each square
-            return res + spl[3]
-        return ''
+        # get the stones dropped each square
+        return res + spl[3]
+    return ''
 
 
 def get_moves(notation: str):
@@ -82,77 +117,55 @@ def get_ptn(game) -> str:
     return ptn
 
 
-def extract_ptn(f: str, o: str, num_plies: int, max_i: int, min_rating: int, player_white: str = None, player_black: str = None, start_id = 0):
-    con = sqlite3.connect(f)
-    con.row_factory = sqlite3.Row
-    botlist = [
-        'WilemBot',
-        'TopazBot',
-        'Tiltak_Bot',
-        'TakticianBot',
-        'TakticianBotDev',
-        'TakkenBot',
-        'kriTakBot',
-        'robot',
-        'AaaarghBot',
-        'TakkerusBot',
-        'CrumBot',
-        'SlateBot',
-        'alphatak_bot',
-        'alphabot',
-        'IntuitionBot',
-        'Geust93',
-        'ShlktBot',
-        'Taik',
-        'VerekaiBot1',
-        'CobbleBot',
-        'AlphaTakBot_5x5',
-        'takkybot',
-        'BloodlessBot',
-        'TakkerBot',
-        'BeginnerBot',
-        'cutak_bot',
-        'FriendlyBot',
-        'antakonistbot',
-        'sTAKbot1',
-        'sTAKbot2',
-        'FPABot',
-        'DoubleStackBot',
-        'FlashBot',
-        'CairnBot'
-    ]
-    botlist = '("' + '","'.join(botlist) + '")'
+def extract_ptn(
+    db_file: str,
+    target_file: str,
+    num_plies: int,
+    max_i: int,
+    min_rating: int,
+    player_white: str = None,
+    player_black: str = None,
+    start_id = 0
+):
+    with sqlite3.connect(db_file) as db:
+        db.row_factory = sqlite3.Row
 
-    games_query = f"""
-        SELECT *, LENGTH(notation) - LENGTH(REPLACE(notation,',','')) - 1 AS numplies
-        FROM games
-        WHERE
-            numplies>{num_plies} AND
-            rating_white >= {min_rating} AND
-            rating_black >= {min_rating} AND
-            id > {start_id} AND
-            player_white {f'NOT IN {botlist}' if player_white is None else f'= "{player_white}"'} AND
-            player_black {f'NOT IN {botlist}' if player_black is None else f'= "{player_black}"'} AND
-            size = 6
+        games_query = f"""
+            SELECT *, LENGTH(notation) - LENGTH(REPLACE(notation,',','')) - 1 AS numplies
+            FROM games
+            WHERE
+                numplies>{num_plies} AND
+                rating_white >= {min_rating} AND
+                rating_black >= {min_rating} AND
+                id > {start_id} AND
+                player_white {f'NOT IN {BOTNAMES}' if player_white is None else f'= "{player_white}"'} AND
+                player_black {f'NOT IN {BOTNAMES}' if player_black is None else f'= "{player_black}"'} AND
+                size = 6
+            LIMIT {max_i}
         ;"""
-    games = con.execute(games_query)
+        games = db.execute(games_query)
 
-    with open(o, 'w') as output_file:
-        for i, row in enumerate(games):
-            if i > max_i:
-                break
-            r = dict(row)
-            output_file.write(get_ptn(r))
+        with open(target_file, 'w', encoding="UTF-8") as output_file:
+            for game in map(dict, games):
+                output_file.write(get_ptn(game))
 
 
-def main(db_file, target_file, num_plies, num_games, min_rating, player_black=None, player_white=None, start_id=0):
-
+def main(
+    db_file,
+    target_file,
+    num_plies,
+    num_games,
+    min_rating,
+    player_black=None,
+    player_white=None,
+    start_id=0
+):
     # check if db file exists
     try:
-        f = open(db_file)
-        f.close()
-    except IOError:
+        with open(db_file):  # pylint: disable=unspecified-encoding
+            pass
+    except IOError as exc:
         print("File not accessible")
-        sys.exit(2)
+        raise FileNotFoundError(f"Could not open db file '{db_file}'") from exc
 
     extract_ptn(db_file, target_file, num_plies, num_games, min_rating, player_white, player_black, start_id)

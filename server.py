@@ -15,11 +15,9 @@ import db_extractor
 import ptn_parser
 from position_db import PositionDataBase
 
-try:
-    print("creating data directory...")
-    os.mkdir("data")
-except FileExistsError as e:
-    print("data directory already exists")
+ANALYZED_OPENINGS_DB_FILE = 'data/openings_s6_1200.db'
+MAX_GAME_EXAMPLES = 4
+MAX_SUGGESTED_MOVES = 20
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
@@ -28,10 +26,6 @@ app.config['SCHEDULER_API_ENABLED'] = True
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
-
-ANALYZED_OPENINGS_DB_FILE = 'data/openings_s6_1200.db'
-MAX_GAME_EXAMPLES = 4
-MAX_SUGGESTED_MOVES = 20
 
 def to_symmetric_tps(tps: str) -> tuple[str, TpsSymmetry]:
     tps_l = tps.split(' ')
@@ -85,9 +79,6 @@ def import_playtak_games():
         db.conn.commit()
 
         print("done! now serving requests")
-
-# import games first time
-import_playtak_games()
 
 @app.route('/')
 def hello():
@@ -186,7 +177,6 @@ def get_position(tps):
         result['games'] = []
 
         for game in game_examples:
-            print("game", game)
             result['games'].append({
                 'playtak_id': game['playtak_id'],
                 'result': game['result'],
@@ -205,3 +195,13 @@ def get_position(tps):
     response = jsonify(result)
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
+
+
+try:
+    print("creating data directory...")
+    os.mkdir("data")
+except FileExistsError as e:
+    print("data directory already exists")
+
+# import games first time
+import_playtak_games()

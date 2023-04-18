@@ -50,7 +50,7 @@ def add_ptn(ptn, dp: PositionProcessor, max_plies=sys.maxsize):
     dp.add_position(game_id, None, result, tak.get_tps(), None, tak)
 
 
-def main(ptn_file, dp: PositionProcessor):
+def main(ptn_file: str, dp: PositionProcessor):
 
     max_plies = 30
 
