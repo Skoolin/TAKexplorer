@@ -1,4 +1,5 @@
 import sys
+from typing import NewType
 
 # only works with size 6!!
 
@@ -23,12 +24,12 @@ def rotate_tps(tps: str) -> str:
     tps = tps.replace('x3', 'x,x,x')
     tps = tps.replace('x2', 'x,x')
 
-    spl = tps.split('/')
+    splits = tps.split('/')
 
     board = []
 
-    for i in range(0, len(spl)):
-        board.append(spl[i].split(','))
+    for split in splits:
+        board.append(split.split(','))
 
     board = rotate_mat(board)
 
@@ -42,8 +43,9 @@ def rotate_tps(tps: str) -> str:
 
     return tps
 
+TpsSymmetry = NewType("TpsSymmetry", int)
 
-def get_tps_orientation(tps: str) -> int:
+def get_tps_orientation(tps: str) -> TpsSymmetry:
     # ignore ending (current player)
     tps = tps[:-4]
 
@@ -76,16 +78,16 @@ def transform_tps(tps: str, orientation: int) -> str:
 
     if orientation > 3:
         tps = flip_tps(tps)
-        for i in range(4, orientation):
+        for _ in range(4, orientation):
             tps = rotate_tps(tps)
     else:
-        for i in range(0, orientation):
+        for _ in range(0, orientation):
             tps = rotate_tps(tps)
 
     return tps + ending
 
 
-def transposed_transform_tps(tps: str, orientation: int) -> str:
+def transposed_transform_tps(tps: str, orientation: TpsSymmetry) -> str:
     # TODO
     return tps
 
@@ -136,15 +138,15 @@ def transform_move(move: str, orientation: int) -> str:
     if orientation >= 4:
         move = swapchars(move, '+', '-')
         move = swapsquare(move)
-    for i in range(0, orientation):
+    for _ in range(0, orientation):
         move = rotate_move(move)
     test_transpose = transposed_transform_move(move, orientation)
     assert test_transpose == orig
     return move
 
 
-def transposed_transform_move(move: str, orientation: int) -> str:
-    for i in range(orientation, 4 if orientation >= 4 else 0, -1):
+def transposed_transform_move(move: str, orientation: TpsSymmetry) -> str:
+    for _ in range(orientation, 4 if orientation >= 4 else 0, -1):
         move = rotate_move(move)
         move = rotate_move(move)
         move = rotate_move(move)

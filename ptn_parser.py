@@ -2,7 +2,6 @@ import sys
 
 from tqdm import tqdm
 
-from position_db import PositionDataBase
 from position_processor import PositionProcessor
 from tak import GameState
 
@@ -43,10 +42,10 @@ def add_ptn(ptn, dp: PositionProcessor, max_plies=sys.maxsize):
     game_id = dp.add_game(size, playtak_id, white_name, black_name, ptn, result, rating_white, rating_black)
 
     # make all moves
-    for i in range(0, len(all_moves)):
+    for move in all_moves:
         last_tps = tak.get_tps()
-        tak.move(all_moves[i])
-        last_move = all_moves[i]
+        tak.move(move)
+        last_move = move
         dp.add_position(game_id, last_move, result, last_tps, tak.get_tps(), tak)
     dp.add_position(game_id, None, result, tak.get_tps(), None, tak)
 
@@ -57,12 +56,11 @@ def main(ptn_file, dp: PositionProcessor):
 
     ptn = ''
 
-    f = open(ptn_file)
-    count = f.read().count('[Site')
-    f.close()
+    with open(ptn_file, encoding="UTF-8") as f:
+        count = f.read().count('[Site')
 
     with tqdm(total=count, mininterval=10.0, maxinterval=50.0) as progress:
-        with open(ptn_file) as f:
+        with open(ptn_file, encoding="UTF-8") as f:
             line = f.readline()
             ptn += line
             line = f.readline()

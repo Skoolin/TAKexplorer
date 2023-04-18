@@ -84,21 +84,20 @@ class StatisticsGenerator(PositionProcessor):
         self.all_games[self.result] += 1
 
     def print_results(self):
-        f = open(self.target_file, 'w')
-        json_obj = {
-            'all_games': self.all_games,
-            'w_hard_cap_18': self.w_hard_cap_18,
-            'b_hard_cap_18': self.b_hard_cap_18,
-            'w_hard_cap_24': self.w_hard_cap_24,
-            'b_hard_cap_24': self.b_hard_cap_24,
-            'w_cap_12': self.w_cap_12,
-            'b_cap_12': self.b_cap_12,
-            'w_cap_18': self.w_cap_18,
-            'b_cap_18': self.b_cap_18,
-            'w_cap_24': self.w_cap_24,
-            'b_cap_24': self.b_cap_24,
-        }
-        for v in json_obj.values():
-            v['white_win_percent'] = int(float(v['white']/(v['white']+v['black']))*100)
-        json.dump(json_obj, f, indent=4)
-        f.close()
+        with open(self.target_file, 'w', encoding="UTF-8") as f:
+            json_obj = {
+                'all_games': self.all_games,
+                'w_hard_cap_18': self.w_hard_cap_18,
+                'b_hard_cap_18': self.b_hard_cap_18,
+                'w_hard_cap_24': self.w_hard_cap_24,
+                'b_hard_cap_24': self.b_hard_cap_24,
+                'w_cap_12': self.w_cap_12,
+                'b_cap_12': self.b_cap_12,
+                'w_cap_18': self.w_cap_18,
+                'b_cap_18': self.b_cap_18,
+                'w_cap_24': self.w_cap_24,
+                'b_cap_24': self.b_cap_24,
+            }
+            for v in json_obj.values():
+                v['white_win_percent'] = int(float(v['white']/(v['white']+v['black']))*100)
+            json.dump(json_obj, f, indent=4)

@@ -56,15 +56,10 @@ def main(args):
             elif opt in ('-b', '--black'):
                 player_black = arg
 
-        db = PositionDataBase()
-        db.open(target_file)
-
-        db_extractor.main(db_file, ptn_file, num_plies, num_games, min_rating, player_black, player_white, db.max_id)
-
-        ptn_parser.main(ptn_file, db)
-
-        db.conn.commit()
-        db.close()
+        with PositionDataBase(target_file) as db:
+            db_extractor.main(db_file, ptn_file, num_plies, num_games, min_rating, player_black, player_white, db.max_id)
+            ptn_parser.main(ptn_file, db)
+            db.conn.commit()
 
     elif task == 'explore':
         data_collector.collector_main(argv[0])
@@ -115,9 +110,9 @@ def main(args):
 
         db_extractor.main(db_file, ptn_file, num_plies, num_games, min_rating, player_black, player_white)
 
-        sg = StatisticsGenerator(target_file)
-        ptn_parser.main(ptn_file, sg)
-        sg.print_results()
+        stats_gen = StatisticsGenerator(target_file)
+        ptn_parser.main(ptn_file, stats_gen)
+        stats_gen.print_results()
 
 
 if __name__ == '__main__':
