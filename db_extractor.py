@@ -119,53 +119,42 @@ def get_ptn(game) -> str:
 
 def extract_ptn(
     db_file: str,
-    target_file: str,
     num_plies: int,
-    max_i: int,
+    num_games: int,
     min_rating: int,
     player_white: str = None,
     player_black: str = None,
-    start_id = 0
+    start_id = 0,
+    exclude_bots: bool = False,
 ):
     with sqlite3.connect(db_file) as db:
         db.row_factory = sqlite3.Row
+
+        conditions = [
+            f"numplies>{num_plies}",
+            f"rating_white >= {min_rating}",
+            f"rating_black >= {min_rating}",
+            f"id > {start_id}",
+            "size = 6",
+        ]
+        if player_white is not None:
+            conditions.append(f"player_white = {player_white}")
+        elif exclude_bots:
+            conditions.append(f"player_white NOT IN {BOTNAMES}")
+
+        if player_black is not None:
+            conditions.append(f"player_black = {player_black}")
+        elif exclude_bots:
+            conditions.append(f"player_black NOT IN {BOTNAMES}")
 
         games_query = f"""
             SELECT *, LENGTH(notation) - LENGTH(REPLACE(notation,',','')) - 1 AS numplies
             FROM games
             WHERE
-                numplies>{num_plies} AND
-                rating_white >= {min_rating} AND
-                rating_black >= {min_rating} AND
-                id > {start_id} AND
-                player_white {f'NOT IN {BOTNAMES}' if player_white is None else f'= "{player_white}"'} AND
-                player_black {f'NOT IN {BOTNAMES}' if player_black is None else f'= "{player_black}"'} AND
-                size = 6
-            LIMIT {max_i}
+                {' AND '.join(conditions)}
+            LIMIT {num_games}
         ;"""
-        games = db.execute(games_query)
-
-        with open(target_file, 'w', encoding="UTF-8") as output_file:
-            for game in map(dict, games):
-                output_file.write(get_ptn(game))
-
-
-def main(
-    db_file,
-    target_file,
-    num_plies,
-    num_games,
-    min_rating,
-    player_black=None,
-    player_white=None,
-    start_id=0
-):
-    # check if db file exists
-    try:
-        with open(db_file):  # pylint: disable=unspecified-encoding
-            pass
-    except IOError as exc:
-        print("File not accessible")
-        raise FileNotFoundError(f"Could not open db file '{db_file}'") from exc
-
-    extract_ptn(db_file, target_file, num_plies, num_games, min_rating, player_white, player_black, start_id)
+        cursor = db.execute(games_query)
+        games = cursor.fetchall()
+        cursor.close()
+        return list(map(lambda game: (dict(game), get_ptn(game)), games))

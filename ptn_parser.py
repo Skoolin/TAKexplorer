@@ -1,4 +1,5 @@
 import sys
+import typing
 
 from tqdm import tqdm
 
@@ -50,24 +51,10 @@ def add_ptn(ptn, dp: PositionProcessor, max_plies=sys.maxsize):
     dp.add_position(game_id, None, result, tak.get_tps(), None, tak)
 
 
-def main(ptn_file: str, dp: PositionProcessor):
+def main(games: typing.Iterable[typing.Tuple[dict, str]], dp: PositionProcessor, max_plies=30):
+    games = list(games)
 
-    max_plies = 30
-
-    ptn = ''
-
-    with open(ptn_file, encoding="UTF-8") as f:
-        count = f.read().count('[Site')
-
-    with tqdm(total=count, mininterval=10.0, maxinterval=50.0) as progress:
-        with open(ptn_file, encoding="UTF-8") as f:
-            line = f.readline()
-            ptn += line
-            line = f.readline()
-            while line:
-                if line.startswith("[Site"):
-                    add_ptn(ptn, dp, max_plies)
-                    progress.update()
-                    ptn = ''
-                ptn += line
-                line = f.readline()
+    with tqdm(total=len(games), mininterval=10.0, maxinterval=50.0) as progress:
+        for (_game, ptn) in games:
+            add_ptn(ptn, dp, max_plies)
+            progress.update()

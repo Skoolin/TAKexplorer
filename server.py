@@ -11,13 +11,17 @@ from flask_apscheduler import APScheduler
 
 import symmetry_normalisator
 from symmetry_normalisator import TpsSymmetry
-import db_extractor
+from db_extractor import extract_ptn
 import ptn_parser
 from position_db import PositionDataBase
 
 ANALYZED_OPENINGS_DB_FILE = 'data/openings_s6_1200.db'
 MAX_GAME_EXAMPLES = 4
 MAX_SUGGESTED_MOVES = 20
+MAX_PLIES = 30
+NUM_PLIES = 12
+NUM_GAMES = 10_000
+MIN_RATING = 1200
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
@@ -42,8 +46,6 @@ def import_playtak_games():
 
     playtak_games_db = 'data/games_anon.db'
 
-    ptn_file = 'data/games.ptn'
-
     url = 'https://www.playtak.com/games_anon.db'
     if (
         not os.path.exists(playtak_games_db)
@@ -60,23 +62,23 @@ def import_playtak_games():
                 raise Exception("Failed to download playtak games database") from exc # pylint: disable=broad-exception-raised
             print("Using potentially outdated save of games database.")
 
-    with PositionDataBase(ANALYZED_OPENINGS_DB_FILE) as db:
+    with PositionDataBase(ANALYZED_OPENINGS_DB_FILE) as pos_db:
         print("extracting games...")
-        db_extractor.main(
+        games = extract_ptn(
             db_file=playtak_games_db,
-            target_file=ptn_file,
-            num_plies=12,
-            num_games=10000,
-            min_rating=1200,
-            player_black=None,
+            num_plies=NUM_PLIES,
+            num_games=NUM_GAMES,
+            min_rating=MIN_RATING,
             player_white=None,
-            start_id=db.max_id
+            player_black=None,
+            start_id=pos_db.max_id,
+            exclude_bots=True,
         )
 
         print("building opening table...")
-        ptn_parser.main(ptn_file, db)
+        ptn_parser.main(games, pos_db, max_plies=MAX_PLIES)
 
-        db.conn.commit()
+        pos_db.conn.commit()
 
         print("done! now serving requests")
 
