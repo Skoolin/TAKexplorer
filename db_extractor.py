@@ -1,4 +1,5 @@
 import sqlite3
+from typing import Optional
 from xmlrpc.client import DateTime
 
 BOTLIST = [
@@ -83,14 +84,14 @@ def get_moves(notation: str):
 def get_ptn(game) -> str:
     ptn = ''
 
-    wn = 'Anon' if game['date'] < 1461430800000 else game['player_white']
-    bn = 'Anon' if game['date'] < 1461430800000 else game['player_black']
+    white_name = 'Anon' if game['date'] < 1461430800000 else game['player_white']
+    black_name = 'Anon' if game['date'] < 1461430800000 else game['player_black']
 
     ptn += get_header('Site', 'PlayTak.com')
     ptn += get_header('Event', 'Online Play')
 
-    ptn += get_header('Player1', wn)
-    ptn += get_header('Player2', bn)
+    ptn += get_header('Player1', white_name)
+    ptn += get_header('Player2', black_name)
 
     ptn += get_header('Result', game['result'])
     ptn += get_header('Size', game['size'])
@@ -103,7 +104,7 @@ def get_ptn(game) -> str:
 
     # date and time headers
     dt = str(DateTime((game['date'] / 1000)))
-    dt_d = dt.split('T')[0]
+    dt_d = dt.split('T', maxsplit=1)[0]
     dt_d = ''+dt_d[6:8]+'.'+dt_d[4:6]+'.'+dt_d[0:4]
     ptn += get_header('Date', dt_d)
     ptn += get_header('Time', dt.split('T')[1])
@@ -122,8 +123,8 @@ def extract_ptn(
     num_plies: int,
     num_games: int,
     min_rating: int,
-    player_white: str = None,
-    player_black: str = None,
+    player_white: Optional[str] = None,
+    player_black: Optional[str] = None,
     start_id = 0,
     exclude_bots: bool = False,
 ):

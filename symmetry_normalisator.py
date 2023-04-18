@@ -68,7 +68,7 @@ def get_tps_orientation(tps: str) -> TpsSymmetry:
         if rot_tps < best_tps:
             o = i
             best_tps = rot_tps
-    return o
+    return TpsSymmetry(o)
 
 
 def transform_tps(tps: str, orientation: int) -> str:
@@ -127,13 +127,13 @@ def rotate_move(move: str) -> str:
     sys.exit(2)
 
 
-def swapsquare(move):
+def swapsquare(move: str):
     for i in range(0, len(move) - 1):
         if move[i].islower():
             return move[:i+1] + swapint(move[i + 1]) + move[i + 2:]
 
 
-def transform_move(move: str, orientation: int) -> str:
+def transform_move(move: str, orientation: TpsSymmetry) -> str:
     orig = move
     if orientation >= 4:
         move = swapchars(move, '+', '-')
