@@ -5,56 +5,43 @@ from tqdm import tqdm
 
 from position_processor import PositionProcessor
 from tak import GameState
+from db_extractor import get_moves_array
 
 
-def add_ptn(ptn, dp: PositionProcessor, max_plies=sys.maxsize):
-
-    spl = ptn.split("\n\n")
-    headers = spl[0]
-    moves = spl[1]
-
-    # parse headers
-    spl = headers.split("\n")
-    white_name = spl[2][10:-2]
-    black_name = spl[3][10:-2]
-    result = spl[4][9:12]
-    size = int(spl[5][7])
-    rating_white = int(spl[6][10:-2])
-    rating_black = int(spl[7][10:-2])
-
-    playtak_id = int(spl[8].split(' ')[1][1:-2])
-
-    # parse moves
-    spl = moves.split("\n")
-    all_moves = []
-    for row in spl:
-        two_ply = row.split(" ")
-        all_moves.append(two_ply[1])
-        if len(two_ply) > 2:
-            all_moves.append(two_ply[2])
-
-    # apply upper bound of ply depth
-    all_moves = all_moves[0:min(len(all_moves), max_plies)]
+def add_game(game: dict, dp: PositionProcessor, max_plies=sys.maxsize):
+    ptn_array = get_moves_array(game['notation'])
+    all_moves = ptn_array[0:min(len(ptn_array), max_plies)]
 
     # create board
-    tak = GameState(size)
+    tak = GameState(game['size'])
 
     # add game to database
-    game_id = dp.add_game(size, playtak_id, white_name, black_name, ptn, result, rating_white, rating_black)
+    result = game['result']
+    game_id = dp.add_game(
+        game['size'],
+        game['id'],
+        game['player_white'],
+        game['player_black'],
+        game['result'],
+        game['rating_white'],
+        game['rating_black']
+    )
 
     # make all moves
+    last_tps = tak.get_tps()
     for move in all_moves:
-        last_tps = tak.get_tps()
         tak.move(move)
-        last_move = move
-        dp.add_position(game_id, last_move, result, last_tps, tak.get_tps(), tak)
-    dp.add_position(game_id, None, result, tak.get_tps(), None, tak)
+        current_tps = tak.get_tps()  # we want to calculate the TPS only once per game state
+        dp.add_position(game_id, move, result, last_tps, current_tps, tak)
+        last_tps = current_tps
+
+    dp.add_position(game_id, None, result, last_tps, None, tak)
 
 
-def main(games: typing.Iterable[typing.Tuple[dict, str]], dp: PositionProcessor, max_plies=30):
+def add_games_to_db(games: typing.Iterable[dict], dp: PositionProcessor, max_plies=30):
     games = list(games)
 
-    with tqdm(total=len(games), mininterval=10.0, maxinterval=50.0) as progress:
-        for (_game, ptn) in games:
-            add_ptn(ptn, dp, max_plies)
+    with tqdm(total=len(games), mininterval=0.5, maxinterval=2.0) as progress:
+        for game in games:
+            add_game(game, dp, max_plies)
             progress.update()

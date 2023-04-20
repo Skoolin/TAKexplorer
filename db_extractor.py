@@ -80,6 +80,9 @@ def get_moves(notation: str):
         count += 1
     return moves
 
+def get_moves_array(notation: str):
+    return [convert_move(move) for move in notation.split(',')]
+
 
 def get_ptn(game) -> str:
     ptn = ''
@@ -121,7 +124,7 @@ def get_ptn(game) -> str:
     return ptn
 
 
-def extract_ptn(
+def get_games_from_db(
     db_file: str,
     num_plies: int,
     num_games: int,
@@ -161,4 +164,4 @@ def extract_ptn(
         cursor = db.execute(games_query)
         games = cursor.fetchall()
         cursor.close()
-        return list(map(lambda game: (dict(game), get_ptn(game)), games))
+        return [dict(game) for game in games]

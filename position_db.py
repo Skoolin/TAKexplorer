@@ -24,7 +24,6 @@ class PositionDataBase(PositionProcessor):
                 white text NOT NULL,
                 black text NOT NULL,
                 result text NOT NULL,
-                ptn text NOT NULL,
                 rating_white integer DEFAULT 1000,
                 rating_black integer DEFAULT 1000
             );
@@ -186,7 +185,6 @@ class PositionDataBase(PositionProcessor):
             playtak_id: int,
             white_name: str,
             black_name: str,
-            ptn: str,
             result: str,
             rating_white: int,
             rating_black: int
@@ -194,15 +192,15 @@ class PositionDataBase(PositionProcessor):
         assert self.conn is not None
 
         insert_game_data_sql = f"""
-            INSERT INTO games (playtak_id, size, white, black, result, ptn, rating_white, rating_black)
-            VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', '{ptn}', {rating_white}, {rating_black});
-        """
-        get_game_idx_sql = "SELECT id FROM games WHERE ptn = :ptn;"
+            INSERT INTO games (playtak_id, size, white, black, result, rating_white, rating_black)
+            VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', {rating_white}, {rating_black})
+            RETURNING id;
+        """ # use RETURNING so that we can get the inserted id after the query
+
         curr = self.conn.cursor()
         curr.execute(insert_game_data_sql)
-        curr.execute(get_game_idx_sql, { 'ptn': ptn })
-        res = dict(curr.fetchone())['id']
-        return res
+        inserted_id = curr.fetchone()[0]
+        return inserted_id
 
     def create_position_entry(self, tps: str):
         assert self.conn is not None
