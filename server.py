@@ -261,10 +261,9 @@ def getposition_parameterized(white, black, rating, tps):
             all_games.append(dict(r))
 
         all_games = all_games[0:min(4, len(all_games))]
-
-        top_games = []
+        
         for game in all_games:
-            top_games.append({
+            result['games'].append({
                 'playtak_id': game['playtak_id'],
                 'result': game['result'],
                 'white': {
