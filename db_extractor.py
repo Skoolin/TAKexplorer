@@ -1,6 +1,6 @@
 import sqlite3
 from typing import Optional
-from xmlrpc.client import DateTime
+from datetime import datetime
 
 BOTLIST = [
     'WilemBot',
@@ -103,11 +103,9 @@ def get_ptn(game) -> str:
     ptn += get_header('playtak_id', game['id'])
 
     # date and time headers
-    dt = str(DateTime((game['date'] / 1000)))
-    dt_d = dt.split('T', maxsplit=1)[0]
-    dt_d = ''+dt_d[6:8]+'.'+dt_d[4:6]+'.'+dt_d[0:4]
-    ptn += get_header('Date', dt_d)
-    ptn += get_header('Time', dt.split('T')[1])
+    dt = datetime.utcfromtimestamp((game['date'] / 1000))
+    ptn += get_header('Date', dt.strftime("%Y.%m.%d"))
+    ptn += get_header('Time', dt.strftime("%H:%M:%S"))
 
     # TODO clock header
     #    ptn += get_header('Clock', get_timer_info(game.timertime, game.timerinc))
