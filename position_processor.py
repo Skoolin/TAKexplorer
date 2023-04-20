@@ -13,7 +13,6 @@ class PositionProcessor(ABC):
         playtak_id: int,
         white_name: str,
         black_name: str,
-        ptn: str,
         result: str,
         rating_white: int,
         rating_black: int

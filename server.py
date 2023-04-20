@@ -13,7 +13,7 @@ from flask_apscheduler import APScheduler
 
 import ptn_parser
 import symmetry_normalisator
-from db_extractor import extract_ptn, get_ptn
+from db_extractor import get_games_from_db, get_ptn
 from position_db import PositionDataBase
 from symmetry_normalisator import TpsSymmetry
 
@@ -34,6 +34,7 @@ class OpeningsDbConfig:
 
     @property
     def db_file_name(self):
+        return ":memory:"
         bots_text = "bots" if self.include_bot_games else "nobots"
         file_name = f"openings_s{self.size}_{self.min_rating}_{bots_text}.db"
         return os.path.join(DATA_DIR, file_name)
@@ -78,7 +79,7 @@ def download_playtak_db(url: str, destination: str):
 def update_openings_db(playtak_db: str, config: OpeningsDbConfig):
     print(f"extracting games from {playtak_db} to {config.db_file_name}")
     with PositionDataBase(config.db_file_name) as pos_db:
-        games = extract_ptn(
+        games = get_games_from_db(
             db_file=PLAYTAK_GAMES_DB,
             num_plies=NUM_PLIES,
             num_games=NUM_GAMES,
@@ -90,7 +91,7 @@ def update_openings_db(playtak_db: str, config: OpeningsDbConfig):
         )
 
         print("building opening table...")
-        ptn_parser.main(games, pos_db, max_plies=MAX_PLIES)
+        ptn_parser.add_games_to_db(games, pos_db, max_plies=MAX_PLIES)
         pos_db.commit()
 
         print("...done!")
@@ -144,7 +145,7 @@ def getposition_parameterized(white, black, rating, tps):
     # we don't care about move number:
     sym_tps, symmetry = to_symmetric_tps(tps)
 
-    select_results_sql = f"SELECT * FROM positions WHERE tps=:sym_tps;"
+    select_results_sql = "SELECT * FROM positions WHERE tps=:sym_tps;"
 
     with sqlite3.connect(config.db_file_name) as db:
         db.row_factory = sqlite3.Row
@@ -152,7 +153,7 @@ def getposition_parameterized(white, black, rating, tps):
         cur.execute(select_results_sql, {"sym_tps": sym_tps})
 
         row = cur.fetchone()
-        if row == None:
+        if row is None:
             cur.close()
             result = {'white': 0, 'black': 0, 'moves': [], 'games': []}
             response = jsonify(result)
@@ -160,8 +161,6 @@ def getposition_parameterized(white, black, rating, tps):
             return response
 
         row = dict(row)
-
-        pos_id = row['id']
 
         position_moves = row['moves']
         if position_moves == '':
@@ -177,9 +176,9 @@ def getposition_parameterized(white, black, rating, tps):
         total_wwins = 0
         total_bwins = 0
         total_draws = 0
-        
-        white_str = "" if white == "None" else f"AND games.white = :white"
-        black_str = "" if black == "None" else f"AND games.black = :black"
+
+        white_str = "" if white == "None" else "AND games.white = :white"
+        black_str = "" if black == "None" else "AND games.black = :black"
 
         for r in moves_list:
 
@@ -261,7 +260,7 @@ def getposition_parameterized(white, black, rating, tps):
             all_games.append(dict(r))
 
         all_games = all_games[0:min(4, len(all_games))]
-        
+
         for game in all_games:
             result['games'].append({
                 'playtak_id': game['playtak_id'],
@@ -275,7 +274,7 @@ def getposition_parameterized(white, black, rating, tps):
                     'rating': game['rating_black']
                     }
                 })
-            
+
         cur.close()
 
     response = jsonify(result)
