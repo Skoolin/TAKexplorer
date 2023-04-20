@@ -15,15 +15,15 @@ class Square:
         self.stones = []
 
     def __str__(self):
-        r = ''.join(map(str, self.stones))
-        for i in range(0, 8 - len(r)):
+        # r = ''.join(map(str, self.stones))
+        r = ''.join(self.stones)
+        for _ in range(0, 8 - len(r)):
             r += ' '
         return r + '|'
 
     def clone(self):
         c = Square()
-        for s in self.stones:
-            c.stones.append(s.clone())
+        c.stones = [stone.clone() for stone in self.stones]
         return c
 
 
@@ -85,23 +85,21 @@ class GameState:
                 self.first_move = False
 
         # check for move command:
-        try:
-            stack_height = int(ptn[0])
-            move_command = True
-        except ValueError:
-            stack_height = 0
-            move_command = False
+        first_char = ptn[0]
+        move_command = first_char.isdecimal()
+        stack_height = int(first_char) if move_command else 0
 
         if move_command:
-            s = []
             ptn = ptn[1:]
             square_idx = ptn[0:2]
             square = self.get_square(square_idx)
-            for i in range(0, stack_height):
+
+            s = []
+            for _ in range(0, stack_height):
                 s.append(square.stones.pop())
             direction = ptn[2]
             rest = ptn[3:]
-            for i in range(0, len(rest)):
+            for drop_count in rest:
                 square_idx = get_adjacent(square_idx, direction)
                 square = self.get_square(square_idx)
                 # flatten if top stone is wall
@@ -111,11 +109,11 @@ class GameState:
                     square.stones.append(top_stone)
                 except IndexError:
                     top_stone = None
-                count = int(rest[i])
-                for j in range(0, count):
+                count = int(drop_count)
+                for _ in range(0, count):
                     square.stones.append(s.pop())
             count = len(s)
-            for j in range(0, count):
+            for _ in range(0, count):
                 square.stones.append(s.pop())
 
         else:  # place command
@@ -151,10 +149,10 @@ class GameState:
                 else:
                     if len(row) > 0:
                         row += ','
-                    for i in range(0, len(square.stones)):
-                        row += '1' if square.stones[i].colour == "white" else '2'
-                        if square.stones[i].stone_type.lower() != 'f':
-                            row += square.stones[i].stone_type.upper()
+                    for stone in square.stones:
+                        row += '1' if stone.colour == "white" else '2'
+                        if stone.stone_type.lower() != 'f':
+                            row += stone.stone_type.upper()
             res += row + '/'
         res = res[:-1] # remove trailing /
         res = res + (' 1' if self.player == "white" else ' 2') # add current player
@@ -165,7 +163,7 @@ class GameState:
         self.board = []
         for i in range(0, self.size):
             self.board.append([])
-            for j in range(0, self.size):
+            for _ in range(0, self.size):
                 self.board[i].append(Square())
         self.player = "white"
         self.first_move = True
