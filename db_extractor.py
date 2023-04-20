@@ -1,6 +1,6 @@
 import sqlite3
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 BOTLIST = [
     'WilemBot',
@@ -107,8 +107,13 @@ def get_ptn(game) -> str:
     ptn += get_header('Date', dt.strftime("%Y.%m.%d"))
     ptn += get_header('Time', dt.strftime("%H:%M:%S"))
 
-    # TODO clock header
-    #    ptn += get_header('Clock', get_timer_info(game.timertime, game.timerinc))
+    def format_clock(timertime_seconds: int, timerinc_seconds: int):
+        """Format `minutes:seconds +incrementseconds` e.g. `3:0 +5"""
+        timertime = timedelta(seconds=timertime_seconds)
+        timerinc = timedelta(seconds=timerinc_seconds)
+        return f"{timertime.seconds // 60}:{timertime.seconds % 60} +{timerinc.seconds}"
+
+    ptn += get_header('Clock', format_clock(game['timertime'], game['timerinc']))
 
     ptn += get_moves(game['notation'])
     ptn += '\n\n\n'
