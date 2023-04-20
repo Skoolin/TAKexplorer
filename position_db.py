@@ -33,8 +33,6 @@ class PositionDataBase(PositionProcessor):
             CREATE TABLE IF NOT EXISTS positions (
                 id integer PRIMARY KEY,
                 tps text UNIQUE,
-                bwins integer,
-                wwins integer,
                 moves text
             );
             """,
@@ -136,16 +134,10 @@ class PositionDataBase(PositionProcessor):
 
             next_pos_id = dict(next_pos)['id']
 
-        # update win counts of either player:
+        # update the game-move crossreference table
         row_dict = dict(row)
         position_id = row_dict['id']
 
-        if result[0] != '0':  # white win!
-            curr.execute("UPDATE positions SET wwins=wwins+1 WHERE id=:position_id;", { 'position_id': position_id })
-        if result[2] != '0':  # black win!
-            curr.execute("UPDATE positions SET bwins=bwins+1 WHERE id=:position_id;", { 'position_id': position_id })
-
-        # update the game-move crossreference table
         curr.execute(
             "INSERT INTO game_position_xref (game_id, position_id) VALUES (:game_id, :position_id);",
             { 'game_id': game_id, 'position_id': position_id }
@@ -167,20 +159,19 @@ class PositionDataBase(PositionProcessor):
             for moves in moves_list:
                 if moves[0] == move:
                     move_found = True
-                    moves[2] = str(int(moves[2]) + 1) # increment times played
                     break
 
             if not move_found:
                 # append new move to moves_list
                 moves_list.append([move, str(next_pos_id), '1'])
 
-            # transform moves_list into db string format
-            position_moves = ';'.join(list(map(','.join, moves_list)))
+                # transform moves_list into db string format
+                position_moves = ';'.join(list(map(','.join, moves_list)))
 
-            curr.execute(
-                "UPDATE positions SET moves=:position_moves WHERE id=:position_id",
-                { 'position_moves': position_moves, 'position_id': position_id }
-            )
+                curr.execute(
+                    "UPDATE positions SET moves=:position_moves WHERE id=:position_id",
+                    { 'position_moves': position_moves, 'position_id': position_id }
+                )
 
         return own_symmetry
 
@@ -216,6 +207,6 @@ class PositionDataBase(PositionProcessor):
     def create_position_entry(self, tps: str):
         assert self.conn is not None
 
-        insert_position_data_sql = "INSERT INTO positions (tps, wwins, bwins, moves) VALUES (:tps, 0, 0, '');"
+        insert_position_data_sql = "INSERT INTO positions (tps, moves) VALUES (:tps, '');"
         curr = self.conn.cursor()
         curr.execute(insert_position_data_sql, { 'tps': tps })

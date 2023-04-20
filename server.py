@@ -39,8 +39,7 @@ class OpeningsDbConfig:
         return os.path.join(DATA_DIR, file_name)
 
 openings_db_configs = [
-    OpeningsDbConfig(min_rating=1200, include_bot_games=False, size=6),
-    OpeningsDbConfig(min_rating=1700, include_bot_games=True, size=6),
+    OpeningsDbConfig(min_rating=MIN_RATING, include_bot_games=False, size=6),
 ]
 
 app = Flask(__name__)
@@ -135,34 +134,35 @@ def getgame(game_id):
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
-@app.route('/api/v1/opening/<path:tps>', methods=['GET'])
-def get_position_default_db(tps):
-    """This exists only to continue supporting the old API with no database ID specified"""
-    return get_position(database_id=0, tps=tps)
 
-@app.route('/api/v1/opening/<int:database_id>/<path:tps>', methods=['GET'])
-def get_position(database_id: int, tps: str):
-    config = openings_db_configs[database_id]
-    print(f'requested position from {config.db_file_name} with tps: {tps}')
+@app.route('/api/v1/opening/white=<white>,black=<black>,rating=<int:rating>,tps=<path:tps>', methods=['GET'])
+def getposition_parameterized(white, black, rating, tps):
+    print(f'requested position with white: {white}, black: {black}, min. rating: {rating}, tps: {tps}')
+
+    config = openings_db_configs[0] # we only use one db config right now
 
     # we don't care about move number:
     sym_tps, symmetry = to_symmetric_tps(tps)
 
-    select_results_sql = "SELECT * FROM positions WHERE tps=:sym_tps;"
+    select_results_sql = f"SELECT * FROM positions WHERE tps=:sym_tps;"
 
     with sqlite3.connect(config.db_file_name) as db:
         db.row_factory = sqlite3.Row
-        cur = db.cursor() # with closing(db.cursor()) as cur:
-        cur.execute(select_results_sql, { 'sym_tps': sym_tps })
+        cur = db.cursor()
+        cur.execute(select_results_sql, {"sym_tps": sym_tps})
 
         row = cur.fetchone()
-        if row is None:
+        if row == None:
+            cur.close()
             result = {'white': 0, 'black': 0, 'moves': [], 'games': []}
             response = jsonify(result)
             response.headers.add("Access-Control-Allow-Origin", "*")
             return response
 
         row = dict(row)
+
+        pos_id = row['id']
+
         position_moves = row['moves']
         if position_moves == '':
             position_moves = []
@@ -170,33 +170,76 @@ def get_position(database_id: int, tps: str):
             position_moves = position_moves.split(';')
 
         moves_list = list(map(lambda x: x.split(','), position_moves))
-        moves_list.sort(key=lambda x: int(x[2]), reverse=True)
 
         real_positions = []
         moves = []
 
-        for [move, move_id, _game_count] in moves_list:
-            if len(real_positions) >= MAX_SUGGESTED_MOVES:
-                break
+        total_wwins = 0
+        total_bwins = 0
+        total_draws = 0
+        
+        white_str = "" if white == "None" else f"AND games.white = :white"
+        black_str = "" if black == "None" else f"AND games.black = :black"
 
+        for r in moves_list:
+
+            move = r[0]
+            move_id = r[1]
             if move_id in real_positions:
                 continue
-            select_results_sql = "SELECT * FROM positions WHERE id=:move_id;"
+            select_games_sql = f"""
+                    SELECT games.result, count(games.result) AS count
+                    FROM game_position_xref, games, positions
+                    WHERE game_position_xref.position_id = positions.id
+                        AND games.id = game_position_xref.game_id
+                        AND positions.id = {move_id}
+                        AND games.rating_white >= :rating
+                        AND games.rating_black >= :rating
+                        {white_str}
+                        {black_str}
+                    GROUP BY games.result
+                        """
 
-            cur.execute(select_results_sql, { 'move_id': move_id })
-            exe_res = cur.fetchone()
-            if exe_res is None:
+            cur.execute(select_games_sql, {"rating": rating, "white": white, "black": black})
+            exe_res = cur.fetchall()
+            if len(exe_res) < 1:
                 continue
-            next_row = dict(exe_res)
-            real_positions.append(move_id)
+
+            wwins = 0
+            bwins = 0
+            draws = 0
+            for row in exe_res:
+                next_row = dict(row)
+                if next_row['result'].startswith('0-'):
+                    bwins += next_row['count']
+                elif next_row['result'].endswith('-0'):
+                    wwins += next_row['count']
+                elif next_row['result'] == '1/2-1/2':
+                    draws += next_row['count']
+
+            total_wwins += wwins
+            total_bwins += bwins
+            total_draws += draws
 
             move = symmetry_normalisator.transposed_transform_move(move, symmetry)
 
-            moves.append({"ptn": move, "white": next_row['wwins'], "black": next_row['bwins']})
+            moves.append({"ptn": move, "white": wwins, "black": bwins, "draw": draws})
 
+            real_positions.append(move_id)
+
+        moves.sort(key=lambda x: x['white']+x['white']+x['draw'], reverse=True)
+
+        result = {
+            'white': total_wwins,
+            'black': total_bwins,
+            'draw': total_draws,
+            'config': config,
+            'moves': moves[:min(20, len(moves))],
+            'games': [],
+        }
 
         # get top games
-        select_games_sql = """
+        select_games_sql = f"""
                 SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.rating_white, games.rating_black,
                     game_position_xref.game_id, game_position_xref.position_id,
                     positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
@@ -204,21 +247,24 @@ def get_position(database_id: int, tps: str):
                 WHERE game_position_xref.position_id=positions.id
                     AND games.id = game_position_xref.game_id
                     AND positions.tps = :sym_tps
-                ORDER BY AVG_rating DESC
-                LIMIT :limit;"""
-        cur.execute(select_games_sql, { 'sym_tps': sym_tps, 'limit': MAX_GAME_EXAMPLES })
-        game_examples = list(map(dict, cur.fetchall()))
+                    AND games.rating_white >= :rating
+                    AND games.rating_black >= :rating
+                    {white_str}
+                    {black_str}
+                ORDER BY AVG_rating DESC;"""
+        cur.execute(select_games_sql, { 'sym_tps': sym_tps, "rating": rating, "black": black, "white": white })
+        row = cur.fetchall()
 
-        result = {
-            'white': row['wwins'],
-            'black': row['bwins'],
-            'config': config,
-            'moves': moves,
-            'games': [],
-        }
+        all_games = []
 
-        for game in game_examples:
-            result['games'].append({
+        for r in row:
+            all_games.append(dict(r))
+
+        all_games = all_games[0:min(4, len(all_games))]
+
+        top_games = []
+        for game in all_games:
+            top_games.append({
                 'playtak_id': game['playtak_id'],
                 'result': game['result'],
                 'white': {
@@ -230,13 +276,22 @@ def get_position(database_id: int, tps: str):
                     'rating': game['rating_black']
                     }
                 })
-
+            
         cur.close()
 
     response = jsonify(result)
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
+# for access of specific DB
+# not implemented because we use only one DB currently
+@app.route('/api/v1/opening/<int:db_id>/<path:tps>', methods=['GET'])
+def getposition_default_with_db_id(db_id, tps):
+    return getposition_default(tps)
+
+@app.route('/api/v1/opening/<path:tps>', methods=['GET'])
+def getposition_default(tps):
+    return getposition_parameterized(white="None", black="None", rating=1200, tps=tps)
 
 try:
     print("creating data directory...")
