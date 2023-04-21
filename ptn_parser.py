@@ -17,14 +17,18 @@ def add_game(game: dict, dp: PositionProcessor, max_plies=sys.maxsize):
 
     # add game to database
     result = game['result']
+    komi = int(game['komi'] or 0)
+
     game_id = dp.add_game(
-        game['size'],
-        game['id'],
-        game['player_white'],
-        game['player_black'],
-        game['result'],
-        game['rating_white'],
-        game['rating_black']
+        size=game['size'],
+        playtak_id=game['id'],
+        white_name=game['player_white'],
+        black_name=game['player_black'],
+        result=game['result'],
+        komi=komi,
+        rating_white=game['rating_white'],
+        rating_black=game['rating_black'],
+        date=game['date'],
     )
 
     # make all moves

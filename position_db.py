@@ -24,8 +24,10 @@ class PositionDataBase(PositionProcessor):
                 white text NOT NULL,
                 black text NOT NULL,
                 result text NOT NULL,
+                komi integer,
                 rating_white integer DEFAULT 1000,
-                rating_black integer DEFAULT 1000
+                rating_black integer DEFAULT 1000,
+                date integer
             );
             """,
                                 """
@@ -49,6 +51,12 @@ class PositionDataBase(PositionProcessor):
             "CREATE INDEX IF NOT EXISTS idx_xref_game_id ON game_position_xref (game_id);",
             "CREATE INDEX IF NOT EXISTS idx_xref_position_id ON game_position_xref (position_id);",
             "CREATE INDEX IF NOT EXISTS idx_position_tps ON positions (tps);",
+            "CREATE INDEX IF NOT EXISTS idx_games_white ON games (white);",
+            "CREATE INDEX IF NOT EXISTS idx_games_black ON games (black);",
+            "CREATE INDEX IF NOT EXISTS idx_games_rating_white ON games (rating_white);",
+            "CREATE INDEX IF NOT EXISTS idx_games_rating_black ON games (rating_black);",
+            "CREATE INDEX IF NOT EXISTS idx_games_komi ON games (komi);",
+            "CREATE INDEX IF NOT EXISTS idx_games_date ON games (date);",
         ]
 
         try:
@@ -200,14 +208,16 @@ class PositionDataBase(PositionProcessor):
             white_name: str,
             black_name: str,
             result: str,
+            komi: int,
             rating_white: int,
-            rating_black: int
+            rating_black: int,
+            date: int, # timestamp
     ) -> int:
         assert self.conn is not None
 
         insert_game_data_sql = f"""
-            INSERT INTO games (playtak_id, size, white, black, result, rating_white, rating_black)
-            VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', {rating_white}, {rating_black})
+            INSERT INTO games (playtak_id, size, white, black, result, komi, rating_white, rating_black, 'date')
+            VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', {komi}, {rating_white}, {rating_black}, {date})
             RETURNING id;
         """ # use RETURNING so that we can get the inserted id after the query
 

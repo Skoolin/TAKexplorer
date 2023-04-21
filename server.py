@@ -4,7 +4,7 @@ import os
 import sqlite3
 import time
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Literal, Optional
 
 import requests
@@ -50,6 +50,8 @@ class GameInfo:
     result: str
     white: PlayerInfo
     black: PlayerInfo
+    date: str # isoformat utc
+    komi: float
 
 @dataclass
 class AnalysisSettings:
@@ -58,6 +60,7 @@ class AnalysisSettings:
     min_rating: int = 0
     max_suggested_moves: int = MAX_SUGGESTED_MOVES
     include_bot_games: bool = False
+    komi: Optional[float] = None
 
 @dataclass
 class PositionAnalysis:
@@ -159,6 +162,8 @@ def get_game(game_id):
 
         game = dict(cur.fetchone())
         game['ptn'] = get_ptn(game)
+        komi = float(game['komi'] or 0) / 2 # correct komi
+        game['komi'] = komi
 
         cur.close()
 
@@ -266,7 +271,7 @@ def get_position_analysis(
 
         # get top games
         select_games_sql = f"""
-                SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.rating_white, games.rating_black,
+                SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.komi, games.rating_white, games.rating_black, games.date,
                     game_position_xref.game_id, game_position_xref.position_id,
                     positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
                 FROM game_position_xref, games, positions
@@ -293,6 +298,8 @@ def get_position_analysis(
                 result = game['result'],
                 white = PlayerInfo(name=game['white'], rating=game['rating_white']),
                 black = PlayerInfo(name=game['black'], rating=game['rating_black']),
+                komi = float(game['komi'] or 0) / 2,
+                date = datetime.utcfromtimestamp(game['date']/1000).isoformat(),
             ))
 
         cur.close()
