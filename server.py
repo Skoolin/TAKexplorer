@@ -217,7 +217,7 @@ def get_position_analysis(
         komi_str  = "AND games.komi = :komi" if settings.komi is not None else ""
 
         # db stores komi as an integer (double of what it actually is)
-        komi: Optional[int] = round(settings.komi * 2, None) if settings.komi else None
+        komi: Optional[int] = round(settings.komi * 2, None) if settings.komi is not None else None
 
         for (move, position_id) in moves_list:
             if position_id in explored_position_ids:
