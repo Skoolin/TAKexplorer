@@ -3,9 +3,9 @@
 import os
 import sqlite3
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Literal
+from typing import Literal, Optional
 
 import requests
 from flask import Flask, jsonify
@@ -134,10 +134,45 @@ def getgame(game_id):
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
-
 @app.route('/api/v1/opening/white=<white>,black=<black>,rating=<int:rating>,tps=<path:tps>', methods=['GET'])
-def getposition_parameterized(white, black, rating, tps) -> dict:
-    print(f'requested position with white: {white}, black: {black}, min. rating: {rating}, tps: {tps}')
+def getposition_parameterized(white: str, black: str, rating: int, tps: str):
+    white_name = None if white in {"None", ""} else white
+    black_name = None if black in {"None", ""} else black
+    analysis = get_position_analysis(white_name, black_name, rating, tps)
+    response = jsonify(analysis)
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
+@dataclass
+class PlayerInfo:
+    name: str
+    rating: int
+
+@dataclass
+class GameInfo:
+    playtak_id: str
+    result: str
+    white: PlayerInfo
+    black: PlayerInfo
+
+@dataclass
+class PositionAnalysis:
+    config: OpeningsDbConfig # used DB configuration
+    white: int = 0# total white wins,
+    black: int = 0# total black wins
+    draw: int = 0# total draws,
+    moves: list[PlayerInfo] = field(default_factory=list) # explored moves,
+    games: list[GameInfo] = field(default_factory=list) # top games
+
+@app.route('/api/v1/opening/white=<white>,black=<black>,min_rating=<int:min_rating>,tps=<path:tps>', methods=['GET'])
+def get_position_analysis(
+    white: Optional[str],
+    black: Optional[str],
+    min_rating: int,
+    tps: str,
+    max_suggested_moves = MAX_SUGGESTED_MOVES
+) -> PositionAnalysis:
+    print(f'requested position with white: {white}, black: {black}, min. min_rating: {min_rating}, tps: {tps}')
 
     config = openings_db_configs[0] # we only use one db config right now
 
@@ -154,7 +189,7 @@ def getposition_parameterized(white, black, rating, tps) -> dict:
         rows = cur.fetchone()
         if rows is None:
             cur.close()
-            return {'white': 0, 'black': 0, 'moves': [], 'games': []}
+            return PositionAnalysis(config=config)
 
         rows = dict(rows)
 
@@ -173,8 +208,8 @@ def getposition_parameterized(white, black, rating, tps) -> dict:
         total_bwins = 0
         total_draws = 0
 
-        white_str = "" if white == "None" else "AND games.white = :white"
-        black_str = "" if black == "None" else "AND games.black = :black"
+        white_str = "AND games.white = :white" if white else ""
+        black_str = "AND games.black = :black" if black else ""
 
         for (move, position_id) in moves_list:
             if position_id in explored_position_ids:
@@ -187,14 +222,14 @@ def getposition_parameterized(white, black, rating, tps) -> dict:
                     WHERE game_position_xref.position_id = positions.id
                         AND games.id = game_position_xref.game_id
                         AND positions.id = {position_id}
-                        AND games.rating_white >= :rating
-                        AND games.rating_black >= :rating
+                        AND games.rating_white >= :min_rating
+                        AND games.rating_black >= :min_rating
                         {white_str}
                         {black_str}
                     GROUP BY games.result
                         """
 
-            cur.execute(select_games_sql, {"rating": rating, "white": white, "black": black})
+            cur.execute(select_games_sql, {"min_rating": min_rating, "white": white, "black": black})
             exe_res = list(cur.fetchall())
             if len(exe_res) == 0:
                 continue
@@ -220,14 +255,14 @@ def getposition_parameterized(white, black, rating, tps) -> dict:
 
         moves.sort(key=lambda x: x['white']+x['black']+x['draw'], reverse=True)
 
-        result = {
-            'white': total_wwins,
-            'black': total_bwins,
-            'draw': total_draws,
-            'config': config,
-            'moves': moves,
-            'games': [],
-        }
+        position_analysis = PositionAnalysis(
+            white = total_wwins,
+            black = total_bwins,
+            draw = total_draws,
+            config = config,
+            moves = moves[:min(max_suggested_moves, len(moves))],
+            games = [],
+        )
 
         # get top games
         select_games_sql = f"""
@@ -238,48 +273,36 @@ def getposition_parameterized(white, black, rating, tps) -> dict:
                 WHERE game_position_xref.position_id=positions.id
                     AND games.id = game_position_xref.game_id
                     AND positions.tps = :sym_tps
-                    AND games.rating_white >= :rating
-                    AND games.rating_black >= :rating
+                    AND games.rating_white >= :min_rating
+                    AND games.rating_black >= :min_rating
                     {white_str}
                     {black_str}
                 ORDER BY AVG_rating DESC
                 LIMIT {MAX_GAME_EXAMPLES};"""
-        cur.execute(select_games_sql, { 'sym_tps': sym_tps, "rating": rating, "black": black, "white": white })
-        top_games = list(map(dict, cur.fetchall()))
+        cur.execute(select_games_sql, { 'sym_tps': sym_tps, "min_rating": min_rating, "black": black, "white": white })
+        top_games = cur.fetchall()
 
-        for game in top_games:
-            result['games'].append({
-                'playtak_id': game['playtak_id'],
-                'result': game['result'],
-                'white': {
-                    'name': game['white'],
-                    'rating': game['rating_white']
-                    },
-                'black': {
-                    'name': game['black'],
-                    'rating': game['rating_black']
-                    }
-                })
+        for game in map(dict, top_games):
+            position_analysis.games.append(GameInfo(
+                playtak_id = game['playtak_id'],
+                result = game['result'],
+                white = PlayerInfo(name=game['white'], rating=game['rating_white']),
+                black = PlayerInfo(name=game['black'], rating=game['rating_black']),
+            ))
 
         cur.close()
 
-        return result
+        return position_analysis
 
 # for access of specific DB
 # not implemented because we use only one DB currently
 @app.route('/api/v1/opening/<int:db_id>/<path:tps>', methods=['GET'])
-def getposition_default_with_db_id(db_id, tps):
+def getposition_default_with_db_id(db_id: int, tps: str):
     return getposition_default(tps)
 
 @app.route('/api/v1/opening/<path:tps>', methods=['GET'])
 def getposition_default(tps):
-    result = getposition_parameterized(white="None", black="None", rating=1200, tps=tps)
-    moves = result['moves']
-    result['moves'] = moves[:min(MAX_SUGGESTED_MOVES, len(moves))]
-
-    response = jsonify(result)
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return getposition_parameterized(white="None", black="None", rating=1200, tps=tps)
 
 try:
     print("creating data directory...")
