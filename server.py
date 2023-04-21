@@ -214,6 +214,10 @@ def get_position_analysis(
 
         white_str = "AND games.white = :white" if settings.white else ""
         black_str = "AND games.black = :black" if settings.black else ""
+        komi_str  = "AND games.komi = :komi" if settings.komi is not None else ""
+
+        # db stores komi as an integer (double of what it actually is)
+        komi: Optional[int] = round(settings.komi * 2, None) if settings.komi else None
 
         for (move, position_id) in moves_list:
             if position_id in explored_position_ids:
@@ -230,10 +234,15 @@ def get_position_analysis(
                         AND games.rating_black >= :min_rating
                         {white_str}
                         {black_str}
+                        {komi_str}
                     GROUP BY games.result
                         """
-
-            cur.execute(select_games_sql, {"min_rating": settings.min_rating, "white": settings.white, "black": settings.black})
+            cur.execute(select_games_sql, {
+                "min_rating": settings.min_rating,
+                "white": settings.white,
+                "black": settings.black,
+                "komi": komi,
+            })
             exe_res = list(cur.fetchall())
             if len(exe_res) == 0:
                 continue
@@ -282,13 +291,15 @@ def get_position_analysis(
                     AND games.rating_black >= :min_rating
                     {white_str}
                     {black_str}
+                    {komi_str}
                 ORDER BY AVG_rating DESC
                 LIMIT {MAX_GAME_EXAMPLES};"""
         cur.execute(select_games_sql, {
             'sym_tps': sym_tps,
             "min_rating": settings.min_rating,
             "black": settings.black,
-            "white": settings.white
+            "white": settings.white,
+            "komi": komi,
         })
         top_games = cur.fetchall()
 
