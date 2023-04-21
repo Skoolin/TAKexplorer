@@ -34,7 +34,6 @@ class OpeningsDbConfig:
 
     @property
     def db_file_name(self):
-        return ":memory:"
         bots_text = "bots" if self.include_bot_games else "nobots"
         file_name = f"openings_s{self.size}_{self.min_rating}_{bots_text}.db"
         return os.path.join(DATA_DIR, file_name)
@@ -226,7 +225,7 @@ def getposition_parameterized(white, black, rating, tps):
 
             real_positions.append(move_id)
 
-        moves.sort(key=lambda x: x['white']+x['white']+x['draw'], reverse=True)
+        moves.sort(key=lambda x: x['white']+x['black']+x['draw'], reverse=True)
 
         result = {
             'white': total_wwins,
