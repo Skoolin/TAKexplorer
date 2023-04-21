@@ -136,7 +136,7 @@ def getgame(game_id):
 
 
 @app.route('/api/v1/opening/white=<white>,black=<black>,rating=<int:rating>,tps=<path:tps>', methods=['GET'])
-def getposition_parameterized(white, black, rating, tps):
+def getposition_parameterized(white, black, rating, tps) -> dict:
     print(f'requested position with white: {white}, black: {black}, min. rating: {rating}, tps: {tps}')
 
     config = openings_db_configs[0] # we only use one db config right now
@@ -151,25 +151,22 @@ def getposition_parameterized(white, black, rating, tps):
         cur = db.cursor()
         cur.execute(select_results_sql, {"sym_tps": sym_tps})
 
-        row = cur.fetchone()
-        if row is None:
+        rows = cur.fetchone()
+        if rows is None:
             cur.close()
-            result = {'white': 0, 'black': 0, 'moves': [], 'games': []}
-            response = jsonify(result)
-            response.headers.add("Access-Control-Allow-Origin", "*")
-            return response
+            return {'white': 0, 'black': 0, 'moves': [], 'games': []}
 
-        row = dict(row)
+        rows = dict(rows)
 
-        position_moves = row['moves']
+        position_moves = rows['moves']
         if position_moves == '':
             position_moves = []
         else:
             position_moves = position_moves.split(';')
 
-        moves_list = list(map(lambda x: x.split(','), position_moves))
+        moves_list: list[tuple[str, str]] = list(map(lambda x: x.split(','), position_moves))
 
-        real_positions = []
+        explored_position_ids: set[str] = set()
         moves = []
 
         total_wwins = 0
@@ -179,18 +176,17 @@ def getposition_parameterized(white, black, rating, tps):
         white_str = "" if white == "None" else "AND games.white = :white"
         black_str = "" if black == "None" else "AND games.black = :black"
 
-        for r in moves_list:
-
-            move = r[0]
-            move_id = r[1]
-            if move_id in real_positions:
+        for (move, position_id) in moves_list:
+            if position_id in explored_position_ids:
                 continue
+            explored_position_ids.add(position_id)
+
             select_games_sql = f"""
                     SELECT games.result, count(games.result) AS count
                     FROM game_position_xref, games, positions
                     WHERE game_position_xref.position_id = positions.id
                         AND games.id = game_position_xref.game_id
-                        AND positions.id = {move_id}
+                        AND positions.id = {position_id}
                         AND games.rating_white >= :rating
                         AND games.rating_black >= :rating
                         {white_str}
@@ -199,15 +195,14 @@ def getposition_parameterized(white, black, rating, tps):
                         """
 
             cur.execute(select_games_sql, {"rating": rating, "white": white, "black": black})
-            exe_res = cur.fetchall()
-            if len(exe_res) < 1:
+            exe_res = list(cur.fetchall())
+            if len(exe_res) == 0:
                 continue
 
             wwins = 0
             bwins = 0
             draws = 0
-            for row in exe_res:
-                next_row = dict(row)
+            for next_row in map(dict, exe_res):
                 if next_row['result'].startswith('0-'):
                     bwins += next_row['count']
                 elif next_row['result'].endswith('-0'):
@@ -223,8 +218,6 @@ def getposition_parameterized(white, black, rating, tps):
 
             moves.append({"ptn": move, "white": wwins, "black": bwins, "draw": draws})
 
-            real_positions.append(move_id)
-
         moves.sort(key=lambda x: x['white']+x['black']+x['draw'], reverse=True)
 
         result = {
@@ -232,7 +225,7 @@ def getposition_parameterized(white, black, rating, tps):
             'black': total_bwins,
             'draw': total_draws,
             'config': config,
-            'moves': moves[:min(20, len(moves))],
+            'moves': moves,
             'games': [],
         }
 
@@ -249,18 +242,12 @@ def getposition_parameterized(white, black, rating, tps):
                     AND games.rating_black >= :rating
                     {white_str}
                     {black_str}
-                ORDER BY AVG_rating DESC;"""
+                ORDER BY AVG_rating DESC
+                LIMIT {MAX_GAME_EXAMPLES};"""
         cur.execute(select_games_sql, { 'sym_tps': sym_tps, "rating": rating, "black": black, "white": white })
-        row = cur.fetchall()
+        top_games = list(map(dict, cur.fetchall()))
 
-        all_games = []
-
-        for r in row:
-            all_games.append(dict(r))
-
-        all_games = all_games[0:min(4, len(all_games))]
-
-        for game in all_games:
+        for game in top_games:
             result['games'].append({
                 'playtak_id': game['playtak_id'],
                 'result': game['result'],
@@ -276,9 +263,7 @@ def getposition_parameterized(white, black, rating, tps):
 
         cur.close()
 
-    response = jsonify(result)
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+        return result
 
 # for access of specific DB
 # not implemented because we use only one DB currently
@@ -288,7 +273,13 @@ def getposition_default_with_db_id(db_id, tps):
 
 @app.route('/api/v1/opening/<path:tps>', methods=['GET'])
 def getposition_default(tps):
-    return getposition_parameterized(white="None", black="None", rating=1200, tps=tps)
+    result = getposition_parameterized(white="None", black="None", rating=1200, tps=tps)
+    moves = result['moves']
+    result['moves'] = moves[:min(MAX_SUGGESTED_MOVES, len(moves))]
+
+    response = jsonify(result)
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
 
 try:
     print("creating data directory...")
