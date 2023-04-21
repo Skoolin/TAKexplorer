@@ -303,16 +303,17 @@ def get_position_analysis(
 # not implemented because we use only one DB currently
 @app.route('/api/v1/opening/<int:db_id>/<path:tps>', methods=['GET', 'POST'])
 def get_position_with_db_id(db_id: int, tps: str):
-    json_data = request.json
-    if json_data:
+
+    if request.is_json and (json_data:=request.json):
+        print("json", json_data)
         settings = AnalysisSettings(**json_data)
     else:
+        print("no json")
         settings = AnalysisSettings()
-    print("JSON", json_data)
     print("SETTINGS", settings)
 
     if db_id >= len(openings_db_configs):
-        return ValueError("database index out of range, query api/v1/databases for options")
+        raise ValueError("database index out of range, query api/v1/databases for options")
 
     analysis = get_position_analysis(openings_db_configs[db_id], settings, tps)
     return jsonify(analysis)
