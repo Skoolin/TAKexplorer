@@ -118,6 +118,10 @@ def get_ptn(game) -> str:
 
     ptn += get_header('Clock', format_clock(game['timertime'], game['timerinc']))
 
+    # komi is saved as an integer to the DB. to support .5 values, it's double before saving``
+    komi = int(game['komi'] or 0)/2
+    ptn += get_header('Komi', f"{komi:.2g}")
+
     ptn += get_moves(game['notation'])
     ptn += '\n\n\n'
 
