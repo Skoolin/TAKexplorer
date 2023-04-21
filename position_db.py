@@ -45,9 +45,19 @@ class PositionDataBase(PositionProcessor):
             );
         """]
 
+        create_index_sql = [
+            "CREATE INDEX IF NOT EXISTS idx_xref_game_id ON game_position_xref (game_id);",
+            "CREATE INDEX IF NOT EXISTS idx_xref_position_id ON game_position_xref (position_id);",
+            "CREATE INDEX IF NOT EXISTS idx_position_tps ON positions (tps);",
+        ]
+
         try:
             if os.path.exists(self.db_file_name):
                 self.conn = sqlite3.connect(self.db_file_name)
+
+                for query in create_index_sql:
+                    self.conn.execute(query)
+
                 self.conn.row_factory = sqlite3.Row
                 cur = self.conn.cursor()
 
@@ -72,6 +82,10 @@ class PositionDataBase(PositionProcessor):
             self.conn.row_factory = sqlite3.Row
             for query in create_tables_sql:
                 self.conn.execute(query)
+
+            for query in create_index_sql:
+                self.conn.execute(query)
+
             return self
 
         except sqlite3.Error as exc:
