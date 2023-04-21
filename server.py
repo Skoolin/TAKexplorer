@@ -8,8 +8,9 @@ from datetime import timedelta
 from typing import Literal, Optional
 
 import requests
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_apscheduler import APScheduler
+from flask_cors import CORS
 
 import ptn_parser
 import symmetry_normalisator
@@ -38,11 +39,44 @@ class OpeningsDbConfig:
         file_name = f"openings_s{self.size}_{self.min_rating}_{bots_text}.db"
         return os.path.join(DATA_DIR, file_name)
 
+@dataclass
+class PlayerInfo:
+    name: str
+    rating: int
+
+@dataclass
+class GameInfo:
+    playtak_id: str
+    result: str
+    white: PlayerInfo
+    black: PlayerInfo
+
+@dataclass
+class AnalysisSettings:
+    white: Optional[str] = None
+    black: Optional[str] = None
+    min_rating: int = 0
+    max_suggested_moves: int = MAX_SUGGESTED_MOVES
+    include_bot_games: bool = False
+
+@dataclass
+class PositionAnalysis:
+    config: OpeningsDbConfig # used DB configuration
+    settings: AnalysisSettings
+    white: int = 0# total white wins,
+    black: int = 0# total black wins
+    draw: int = 0# total draws,
+    moves: list[PlayerInfo] = field(default_factory=list) # explored moves,
+    games: list[GameInfo] = field(default_factory=list) # top games
+
+
 openings_db_configs = [
     OpeningsDbConfig(min_rating=MIN_RATING, include_bot_games=False, size=6),
+    OpeningsDbConfig(min_rating=1700, include_bot_games=True, size=6),
 ]
 
 app = Flask(__name__)
+CORS(app, supports_credentials=True)
 app.config['JSON_SORT_KEYS'] = False
 app.config['SCHEDULER_API_ENABLED'] = True
 
@@ -104,18 +138,16 @@ def import_playtak_games():
         update_openings_db(PLAYTAK_GAMES_DB, config)
     print(f"updated {len(openings_db_configs)} opening dbs")
 
-@app.route('/')
+@app.route('/', methods=['GET'])
 def hello():
     return "hello"
 
-@app.route('/api/v1/databases')
+@app.route('/api/v1/databases', methods=['GET'])
 def options():
-    response = jsonify(openings_db_configs)
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return jsonify(openings_db_configs)
 
 @app.route('/api/v1/game/<game_id>', methods=['get'])
-def getgame(game_id):
+def get_game(game_id):
     # opening_database_config = openings_db_configs[database_id]
     # print(f'requested game from {opening_database_config.db_file_name} with id: {game_id}')
 
@@ -130,51 +162,18 @@ def getgame(game_id):
 
         cur.close()
 
-    response = jsonify(game)
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    return jsonify(game)
 
-@app.route('/api/v1/opening/white=<white>,black=<black>,rating=<int:rating>,tps=<path:tps>', methods=['GET'])
-def getposition_parameterized(white: str, black: str, rating: int, tps: str):
-    white_name = None if white in {"None", ""} else white
-    black_name = None if black in {"None", ""} else black
-    analysis = get_position_analysis(white_name, black_name, rating, tps)
-    response = jsonify(analysis)
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
-
-@dataclass
-class PlayerInfo:
-    name: str
-    rating: int
-
-@dataclass
-class GameInfo:
-    playtak_id: str
-    result: str
-    white: PlayerInfo
-    black: PlayerInfo
-
-@dataclass
-class PositionAnalysis:
-    config: OpeningsDbConfig # used DB configuration
-    white: int = 0# total white wins,
-    black: int = 0# total black wins
-    draw: int = 0# total draws,
-    moves: list[PlayerInfo] = field(default_factory=list) # explored moves,
-    games: list[GameInfo] = field(default_factory=list) # top games
-
-@app.route('/api/v1/opening/white=<white>,black=<black>,min_rating=<int:min_rating>,tps=<path:tps>', methods=['GET'])
 def get_position_analysis(
-    white: Optional[str],
-    black: Optional[str],
-    min_rating: int,
+    config: OpeningsDbConfig,
+    settings: AnalysisSettings,
     tps: str,
-    max_suggested_moves = MAX_SUGGESTED_MOVES
 ) -> PositionAnalysis:
-    print(f'requested position with white: {white}, black: {black}, min. min_rating: {min_rating}, tps: {tps}')
+    print(f'requested position with white: {settings.white}, black: {settings.black}, min. min_rating: {settings.min_rating}, tps: {tps}')
 
-    config = openings_db_configs[0] # we only use one db config right now
+    settings.min_rating = max(config.min_rating, settings.min_rating)
+    settings.include_bot_games = config.include_bot_games and settings.include_bot_games
+    print("Searching with", config, settings)
 
     # we don't care about move number:
     sym_tps, symmetry = to_symmetric_tps(tps)
@@ -189,7 +188,7 @@ def get_position_analysis(
         rows = cur.fetchone()
         if rows is None:
             cur.close()
-            return PositionAnalysis(config=config)
+            return PositionAnalysis(config=config, settings=settings)
 
         rows = dict(rows)
 
@@ -208,8 +207,8 @@ def get_position_analysis(
         total_bwins = 0
         total_draws = 0
 
-        white_str = "AND games.white = :white" if white else ""
-        black_str = "AND games.black = :black" if black else ""
+        white_str = "AND games.white = :white" if settings.white else ""
+        black_str = "AND games.black = :black" if settings.black else ""
 
         for (move, position_id) in moves_list:
             if position_id in explored_position_ids:
@@ -229,7 +228,7 @@ def get_position_analysis(
                     GROUP BY games.result
                         """
 
-            cur.execute(select_games_sql, {"min_rating": min_rating, "white": white, "black": black})
+            cur.execute(select_games_sql, {"min_rating": settings.min_rating, "white": settings.white, "black": settings.black})
             exe_res = list(cur.fetchall())
             if len(exe_res) == 0:
                 continue
@@ -256,11 +255,12 @@ def get_position_analysis(
         moves.sort(key=lambda x: x['white']+x['black']+x['draw'], reverse=True)
 
         position_analysis = PositionAnalysis(
+            config = config,
+            settings = settings,
             white = total_wwins,
             black = total_bwins,
             draw = total_draws,
-            config = config,
-            moves = moves[:min(max_suggested_moves, len(moves))],
+            moves = moves[:settings.max_suggested_moves],
             games = [],
         )
 
@@ -279,7 +279,12 @@ def get_position_analysis(
                     {black_str}
                 ORDER BY AVG_rating DESC
                 LIMIT {MAX_GAME_EXAMPLES};"""
-        cur.execute(select_games_sql, { 'sym_tps': sym_tps, "min_rating": min_rating, "black": black, "white": white })
+        cur.execute(select_games_sql, {
+            'sym_tps': sym_tps,
+            "min_rating": settings.min_rating,
+            "black": settings.black,
+            "white": settings.white
+        })
         top_games = cur.fetchall()
 
         for game in map(dict, top_games):
@@ -296,13 +301,25 @@ def get_position_analysis(
 
 # for access of specific DB
 # not implemented because we use only one DB currently
-@app.route('/api/v1/opening/<int:db_id>/<path:tps>', methods=['GET'])
-def getposition_default_with_db_id(db_id: int, tps: str):
-    return getposition_default(tps)
+@app.route('/api/v1/opening/<int:db_id>/<path:tps>', methods=['GET', 'POST'])
+def get_position_with_db_id(db_id: int, tps: str):
+    json_data = request.json
+    if json_data:
+        settings = AnalysisSettings(**json_data)
+    else:
+        settings = AnalysisSettings()
+    print("JSON", json_data)
+    print("SETTINGS", settings)
 
-@app.route('/api/v1/opening/<path:tps>', methods=['GET'])
-def getposition_default(tps):
-    return getposition_parameterized(white="None", black="None", rating=1200, tps=tps)
+    if db_id >= len(openings_db_configs):
+        return ValueError("database index out of range, query api/v1/databases for options")
+
+    analysis = get_position_analysis(openings_db_configs[db_id], settings, tps)
+    return jsonify(analysis)
+
+@app.route('/api/v1/opening/<path:tps>', methods=['POST', 'GET'])
+def get_position(tps):
+    return  get_position_with_db_id(0, tps)
 
 try:
     print("creating data directory...")
