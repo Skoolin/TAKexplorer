@@ -162,10 +162,10 @@ class PositionDataBase(PositionProcessor):
 
             if not move_found:
                 # append new move to moves_list
-                moves_list.append([move, str(next_pos_id), '1'])
+                moves_list.append((move, str(next_pos_id)))
 
                 # transform moves_list into db string format
-                position_moves = ';'.join(list(map(','.join, moves_list)))
+                position_moves = ';'.join(map(','.join, moves_list))
 
                 curr.execute(
                     "UPDATE positions SET moves=:position_moves WHERE id=:position_id",
