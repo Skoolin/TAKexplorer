@@ -318,8 +318,10 @@ def get_position_with_db_id(db_id: int, tps: str):
     return jsonify(analysis)
 
 @app.route('/api/v1/opening/<path:tps>', methods=['POST', 'GET'])
-def get_position(tps):
+def get_position(tps: str):
     return  get_position_with_db_id(0, tps)
+
+print("sqlite3 version", sqlite3.sqlite_version)
 
 try:
     print("creating data directory...")
