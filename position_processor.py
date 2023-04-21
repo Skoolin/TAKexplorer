@@ -14,8 +14,10 @@ class PositionProcessor(ABC):
         white_name: str,
         black_name: str,
         result: str,
+        komi: int,
         rating_white: int,
-        rating_black: int
+        rating_black: int,
+        date: int, # datetime timestamp
     ) -> int:
         pass
 
@@ -27,6 +29,6 @@ class PositionProcessor(ABC):
         result: str,
         tps: str,
         next_tps: Union[str, None],
-        tak: GameState
+        tak: GameState,
     ):
         pass
