@@ -17,7 +17,7 @@ Please check `./server.py` for details
 ### Requirements
 - Python `>= 3.9`
 - pip
-
+- sqlite `>=3.35` (for [`RETURNING`](https://www.sqlite.org/lang_returning.html))
 ### Install dependencies
 ```sh
 pip install pipenv
