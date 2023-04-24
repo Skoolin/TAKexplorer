@@ -123,6 +123,7 @@ def get_ptn(game) -> str:
     ptn += get_header('Komi', f"{komi:.2g}")
 
     ptn += get_moves(game['notation'])
+    ptn += ' ' + game['result']  # result follows straight after the last move
     ptn += '\n\n\n'
 
     return ptn
