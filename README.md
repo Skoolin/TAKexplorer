@@ -13,6 +13,27 @@ They can also be found [in the Tak wiki](http://tak-studies.wikidot.com/wiki:ope
 ## API
 Please check `./server.py` for details
 
+|endpoint|methods|description|
+|-|-|-|
+|`/api/v1/databases`|`GET`|Settings of queryable databases|
+|`/api/v1/game/<int:game_id>`|`GET`|Game by its `playtak_id` with `PTN`|
+|`/api/v1/players`|`GET`|Get all player names that appear in all opening databases|
+|`/api/v1/opening/<int:db_id>/<path:tps>`|`GET` `POST`|Query database `db_id` with a position in `TPS` format. Returns moves, used search settings and best games from that position.|
+|`/api/v1/opening/<path:tps>`|`GET` `POST`|Like the above but on the default (first) database|
+
+When querying the `opening` endpoints with `POST` the results can be filtered with `class AnalysisSettings`. The values that were actually applied (which factors in which database was used) are included in the response. Example:
+```json
+{
+    "black": [ "nitzel", "Alff" ],  // single names and multiple names possible. falsy values to disable (empty array, empty string, null)
+    "white": "Simmon", // same here
+    "komi": [ 1.5, 2.0 ],  // same here, just with floats/ints
+    "min_rating": 1700,  // minimum value depends on the database
+    "max_suggested_moves": 20,  // how many moves to return
+    "include_bot_games": false,  // might not be possible, depending on the used database
+}
+```
+
+
 ## Setup
 ### Requirements
 - Python `>= 3.9`
