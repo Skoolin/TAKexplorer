@@ -3,16 +3,17 @@
 import os
 import sqlite3
 import time
+import traceback
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Literal, Optional, Union
-from contextlib import closing
 
 import requests
 from flask import Flask, json, jsonify, request
 from flask_apscheduler import APScheduler
 from flask_cors import CORS
-from werkzeug.exceptions import HTTPException, NotFound
+from werkzeug.exceptions import HTTPException, InternalServerError, NotFound
 
 import ptn_parser
 import symmetry_normalisator
@@ -144,20 +145,30 @@ def import_playtak_games():
     print(f"updated {len(openings_db_configs)} opening dbs")
 
 
-@app.errorhandler(HTTPException)
-def handle_exception(exc):
+@app.errorhandler(HTTPException)  # type: ignore
+def handle_httpexception(exc: HTTPException):
     """Return JSON instead of HTML for HTTP errors."""
     # start with the correct headers and status code from the error
     response = exc.get_response()
 
     # replace the body with JSON
-    response.data = json.dumps({
+    response.data = json.dumps({  # type: ignore
         "code": exc.code,
         "name": exc.name,
         "description": exc.description,
     })
+
     response.content_type = "application/json"
     return response
+
+
+@app.errorhandler(Exception)
+def handle_exception(exc: Exception):
+    """Transform any exception thrown during a request to a 500 with an explanation"""
+    print(traceback.format_exc())
+    err = InternalServerError(original_exception=exc, description=str(exc))
+    return handle_httpexception(err)
+
 
 @app.route('/', methods=['GET'])
 def hello():
@@ -169,9 +180,6 @@ def options():
 
 @app.route('/api/v1/game/<game_id>', methods=['get'])
 def get_game(game_id):
-    # opening_database_config = openings_db_configs[database_id]
-    # print(f'requested game from {opening_database_config.db_file_name} with id: {game_id}')
-
     select_game_sql = "SELECT * FROM games WHERE id=:game_id;"
     with closing(sqlite3.connect(PLAYTAK_GAMES_DB)) as db:
         db.row_factory = sqlite3.Row
