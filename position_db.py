@@ -1,3 +1,4 @@
+from contextlib import closing
 import os
 import sqlite3
 from typing import Optional, Union
@@ -67,32 +68,30 @@ class PositionDataBase(PositionProcessor):
                     self.conn.execute(query)
 
                 self.conn.row_factory = sqlite3.Row
-                cur = self.conn.cursor()
+                with closing(self.conn.cursor()) as cur:
+                    get_highest_id_sql = """
+                        SELECT MAX(playtak_id) AS max_id, COUNT(ALL playtak_id) AS games_count FROM games;
+                    """
+                    cur.execute(get_highest_id_sql)
+                    row = cur.fetchone()
 
-                get_highest_id_sql = """
-                    SELECT MAX(playtak_id) AS max_id, COUNT(ALL playtak_id) AS games_count FROM games;
-                """
-                cur.execute(get_highest_id_sql)
-                row = cur.fetchone()
-
-                if row is not None:
-                    row_dict = dict(row)
-                    max_id = row_dict['max_id']
-                    games_count = row_dict['games_count']
-                    if max_id is not None:
-                        print("max game ID in loaded DB: ", max_id)
-                        print("number of games in loaded DB:", games_count)
-                        self.max_id = max_id
-                cur.close()
-                return self
+                    if row is not None:
+                        row_dict = dict(row)
+                        max_id = row_dict['max_id']
+                        games_count = row_dict['games_count']
+                        if max_id is not None:
+                            print("max game ID in loaded DB: ", max_id)
+                            print("number of games in loaded DB:", games_count)
+                            self.max_id = max_id
+                    return self
 
             self.conn = sqlite3.connect(self.db_file_name)
             self.conn.row_factory = sqlite3.Row
             for query in create_tables_sql:
-                self.conn.execute(query)
+                self.conn.execute(query).close()
 
             for query in create_index_sql:
-                self.conn.execute(query)
+                self.conn.execute(query).close()
 
             return self
 
