@@ -6,11 +6,13 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Literal, Optional
+from contextlib import closing
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, json, jsonify, request
 from flask_apscheduler import APScheduler
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException, NotFound
 
 import ptn_parser
 import symmetry_normalisator
@@ -140,6 +142,22 @@ def import_playtak_games():
     for config in openings_db_configs:
         update_openings_db(PLAYTAK_GAMES_DB, config)
     print(f"updated {len(openings_db_configs)} opening dbs")
+
+
+@app.errorhandler(HTTPException)
+def handle_exception(exc):
+    """Return JSON instead of HTML for HTTP errors."""
+    # start with the correct headers and status code from the error
+    response = exc.get_response()
+
+    # replace the body with JSON
+    response.data = json.dumps({
+        "code": exc.code,
+        "name": exc.name,
+        "description": exc.description,
+    })
+    response.content_type = "application/json"
+    return response
 
 @app.route('/', methods=['GET'])
 def hello():
@@ -331,7 +349,7 @@ def get_position_with_db_id(db_id: int, tps: str):
     print("SETTINGS", settings)
 
     if db_id >= len(openings_db_configs):
-        raise ValueError("database index out of range, query api/v1/databases for options")
+        raise NotFound("database index out of range, query api/v1/databases for options")
 
     analysis = get_position_analysis(openings_db_configs[db_id], settings, tps)
     return jsonify(analysis)
@@ -339,6 +357,31 @@ def get_position_with_db_id(db_id: int, tps: str):
 @app.route('/api/v1/opening/<path:tps>', methods=['POST', 'GET'])
 def get_position(tps: str):
     return  get_position_with_db_id(0, tps)
+
+
+@app.route('/api/v1/players', methods=['GET'])
+def get_player_names():
+    """
+    Returns the list of `white` and `black` player names whose games appear in
+    any of the `openings_db_configs`
+    """
+    white_names = set()
+    black_names = set()
+    for config in openings_db_configs:
+        with closing(sqlite3.connect(config.db_file_name)) as db:
+            db.row_factory = sqlite3.Row
+            with closing(db.cursor()) as cur:
+
+                cur.execute("SELECT DISTINCT white AS name from games")
+                white_names.update(map(lambda x: x['name'], cur.fetchall()))
+
+                cur.execute("SELECT DISTINCT black AS name from games")
+                black_names.update(map(lambda x: x['name'], cur.fetchall()))
+
+    return jsonify({
+        'white': sorted(white_names),
+        'black': sorted(black_names),
+    })
 
 print("sqlite3 version", sqlite3.sqlite_version)
 
