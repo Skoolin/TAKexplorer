@@ -254,16 +254,18 @@ def get_position_analysis(
 
                 return f"AND games.{field_name} = :{field_name}", { field_name: values }
 
-            white_str, white_vals = build_condition("white", settings.white) # "AND games.white = :white" if settings.white else ""
-            print("white", white_str, white_vals)
-            black_str, black_vals = build_condition("black", settings.black) # "AND games.black = :black" if settings.black else ""
+            white_str, white_vals = build_condition("white", settings.white)
+            black_str, black_vals = build_condition("black", settings.black)
 
             # db stores komi as an integer (double of what it actually is)
             komi_raw: Optional[list[float]] = settings.komi if isinstance(settings.komi, list) \
                 else [settings.komi] if settings.komi is not None \
                 else None
             komi: Optional[list[int]] = [round(k * 2, None) for k in komi_raw] if komi_raw else None
-            komi_str, komi_vals  = build_condition("komi", komi) # "AND games.komi = :komi" if settings.komi is not None else ""
+            komi_str, komi_vals  = build_condition("komi", komi)
+            # update `settings` because it's part of the response and thus
+            # the one making the response knows, what was actually applied
+            settings.komi = [k / 2 for k in komi] if komi else None
 
 
             for (move, position_id) in moves_list:
