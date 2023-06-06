@@ -1,6 +1,7 @@
 import sqlite3
-from typing import Optional
+from contextlib import closing
 from datetime import datetime, timedelta
+from typing import Optional
 
 BOTLIST = [
     'WilemBot',
@@ -139,7 +140,7 @@ def get_games_from_db(
     start_id = 0,
     exclude_bots: bool = False,
 ):
-    with sqlite3.connect(db_file) as db:
+    with closing(sqlite3.connect(db_file)) as db:
         db.row_factory = sqlite3.Row
 
         conditions = [
@@ -166,7 +167,6 @@ def get_games_from_db(
                 {' AND '.join(conditions)}
             LIMIT {num_games}
         ;"""
-        cursor = db.execute(games_query)
-        games = cursor.fetchall()
-        cursor.close()
-        return [dict(game) for game in games]
+        with closing(db.execute(games_query)) as cursor:
+            games = cursor.fetchall()
+            return [dict(game) for game in games]

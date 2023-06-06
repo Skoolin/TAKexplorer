@@ -173,17 +173,15 @@ def get_game(game_id):
     # print(f'requested game from {opening_database_config.db_file_name} with id: {game_id}')
 
     select_game_sql = "SELECT * FROM games WHERE id=:game_id;"
-    with sqlite3.connect(PLAYTAK_GAMES_DB) as db:
+    with closing(sqlite3.connect(PLAYTAK_GAMES_DB)) as db:
         db.row_factory = sqlite3.Row
-        cur = db.cursor()
-        cur.execute(select_game_sql, { "game_id": game_id })
+        with closing(db.cursor()) as cur:
+            cur.execute(select_game_sql, { "game_id": game_id })
 
-        game = dict(cur.fetchone())
-        game['ptn'] = get_ptn(game)
-        komi = float(game['komi'] or 0) / 2 # correct komi
-        game['komi'] = komi
-
-        cur.close()
+            game = dict(cur.fetchone())
+            game['ptn'] = get_ptn(game)
+            komi = float(game['komi'] or 0) / 2 # correct komi
+            game['komi'] = komi
 
     return jsonify(game)
 
@@ -203,137 +201,134 @@ def get_position_analysis(
 
     select_results_sql = "SELECT * FROM positions WHERE tps=:sym_tps;"
 
-    with sqlite3.connect(config.db_file_name) as db:
+    with closing(sqlite3.connect(config.db_file_name)) as db:
         db.row_factory = sqlite3.Row
-        cur = db.cursor()
-        cur.execute(select_results_sql, {"sym_tps": sym_tps})
+        with closing(db.cursor()) as cur:
+            cur.execute(select_results_sql, {"sym_tps": sym_tps})
 
-        rows = cur.fetchone()
-        if rows is None:
-            cur.close()
-            return PositionAnalysis(config=config, settings=settings)
+            rows = cur.fetchone()
+            if rows is None:
+                return PositionAnalysis(config=config, settings=settings)
 
-        rows = dict(rows)
+            rows = dict(rows)
 
-        position_moves = rows['moves']
-        if position_moves == '':
-            position_moves = []
-        else:
-            position_moves = position_moves.split(';')
+            position_moves = rows['moves']
+            if position_moves == '':
+                position_moves = []
+            else:
+                position_moves = position_moves.split(';')
 
-        moves_list: list[tuple[str, str]] = list(map(lambda x: x.split(','), position_moves))
+            moves_list: list[tuple[str, str]] = list(map(lambda x: x.split(','), position_moves))
 
-        explored_position_ids: set[str] = set()
-        moves = []
+            explored_position_ids: set[str] = set()
+            moves = []
 
-        total_wwins = 0
-        total_bwins = 0
-        total_draws = 0
+            total_wwins = 0
+            total_bwins = 0
+            total_draws = 0
 
-        white_str = "AND games.white = :white" if settings.white else ""
-        black_str = "AND games.black = :black" if settings.black else ""
-        komi_str  = "AND games.komi = :komi" if settings.komi is not None else ""
+            white_str = "AND games.white = :white" if settings.white else ""
+            black_str = "AND games.black = :black" if settings.black else ""
+            komi_str  = "AND games.komi = :komi" if settings.komi is not None else ""
 
-        # db stores komi as an integer (double of what it actually is)
-        komi: Optional[int] = round(settings.komi * 2, None) if settings.komi is not None else None
+            # db stores komi as an integer (double of what it actually is)
+            komi: Optional[int] = round(settings.komi * 2, None) if settings.komi is not None else None
 
-        for (move, position_id) in moves_list:
-            if position_id in explored_position_ids:
-                continue
-            explored_position_ids.add(position_id)
+            for (move, position_id) in moves_list:
+                if position_id in explored_position_ids:
+                    continue
+                explored_position_ids.add(position_id)
 
+                select_games_sql = f"""
+                        SELECT games.result, count(games.result) AS count
+                        FROM game_position_xref, games, positions
+                        WHERE game_position_xref.position_id = positions.id
+                            AND games.id = game_position_xref.game_id
+                            AND positions.id = {position_id}
+                            AND games.rating_white >= :min_rating
+                            AND games.rating_black >= :min_rating
+                            {white_str}
+                            {black_str}
+                            {komi_str}
+                        GROUP BY games.result
+                            """
+                cur.execute(select_games_sql, {
+                    "min_rating": settings.min_rating,
+                    "white": settings.white,
+                    "black": settings.black,
+                    "komi": komi,
+                })
+                exe_res = list(cur.fetchall())
+                if len(exe_res) == 0:
+                    continue
+
+                wwins = 0
+                bwins = 0
+                draws = 0
+                for next_row in map(dict, exe_res):
+                    if next_row['result'].startswith('0-'):
+                        bwins += next_row['count']
+                    elif next_row['result'].endswith('-0'):
+                        wwins += next_row['count']
+                    elif next_row['result'] == '1/2-1/2':
+                        draws += next_row['count']
+
+                total_wwins += wwins
+                total_bwins += bwins
+                total_draws += draws
+
+                move = symmetry_normalisator.transposed_transform_move(move, symmetry)
+
+                moves.append({"ptn": move, "white": wwins, "black": bwins, "draw": draws})
+
+            moves.sort(key=lambda x: x['white']+x['black']+x['draw'], reverse=True)
+
+            position_analysis = PositionAnalysis(
+                config = config,
+                settings = settings,
+                white = total_wwins,
+                black = total_bwins,
+                draw = total_draws,
+                moves = moves[:settings.max_suggested_moves],
+                games = [],
+            )
+
+            # get top games
             select_games_sql = f"""
-                    SELECT games.result, count(games.result) AS count
+                    SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.komi, games.rating_white, games.rating_black, games.date,
+                        game_position_xref.game_id, game_position_xref.position_id,
+                        positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
                     FROM game_position_xref, games, positions
-                    WHERE game_position_xref.position_id = positions.id
+                    WHERE game_position_xref.position_id=positions.id
                         AND games.id = game_position_xref.game_id
-                        AND positions.id = {position_id}
+                        AND positions.tps = :sym_tps
                         AND games.rating_white >= :min_rating
                         AND games.rating_black >= :min_rating
                         {white_str}
                         {black_str}
                         {komi_str}
-                    GROUP BY games.result
-                        """
+                    ORDER BY AVG_rating DESC
+                    LIMIT {MAX_GAME_EXAMPLES};"""
             cur.execute(select_games_sql, {
+                'sym_tps': sym_tps,
                 "min_rating": settings.min_rating,
-                "white": settings.white,
                 "black": settings.black,
+                "white": settings.white,
                 "komi": komi,
             })
-            exe_res = list(cur.fetchall())
-            if len(exe_res) == 0:
-                continue
+            top_games = cur.fetchall()
 
-            wwins = 0
-            bwins = 0
-            draws = 0
-            for next_row in map(dict, exe_res):
-                if next_row['result'].startswith('0-'):
-                    bwins += next_row['count']
-                elif next_row['result'].endswith('-0'):
-                    wwins += next_row['count']
-                elif next_row['result'] == '1/2-1/2':
-                    draws += next_row['count']
+            for game in map(dict, top_games):
+                position_analysis.games.append(GameInfo(
+                    playtak_id = game['playtak_id'],
+                    result = game['result'],
+                    white = PlayerInfo(name=game['white'], rating=game['rating_white']),
+                    black = PlayerInfo(name=game['black'], rating=game['rating_black']),
+                    komi = float(game['komi'] or 0) / 2,
+                    date = datetime.utcfromtimestamp(game['date']/1000).isoformat(),
+                ))
 
-            total_wwins += wwins
-            total_bwins += bwins
-            total_draws += draws
-
-            move = symmetry_normalisator.transposed_transform_move(move, symmetry)
-
-            moves.append({"ptn": move, "white": wwins, "black": bwins, "draw": draws})
-
-        moves.sort(key=lambda x: x['white']+x['black']+x['draw'], reverse=True)
-
-        position_analysis = PositionAnalysis(
-            config = config,
-            settings = settings,
-            white = total_wwins,
-            black = total_bwins,
-            draw = total_draws,
-            moves = moves[:settings.max_suggested_moves],
-            games = [],
-        )
-
-        # get top games
-        select_games_sql = f"""
-                SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.komi, games.rating_white, games.rating_black, games.date,
-                    game_position_xref.game_id, game_position_xref.position_id,
-                    positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
-                FROM game_position_xref, games, positions
-                WHERE game_position_xref.position_id=positions.id
-                    AND games.id = game_position_xref.game_id
-                    AND positions.tps = :sym_tps
-                    AND games.rating_white >= :min_rating
-                    AND games.rating_black >= :min_rating
-                    {white_str}
-                    {black_str}
-                    {komi_str}
-                ORDER BY AVG_rating DESC
-                LIMIT {MAX_GAME_EXAMPLES};"""
-        cur.execute(select_games_sql, {
-            'sym_tps': sym_tps,
-            "min_rating": settings.min_rating,
-            "black": settings.black,
-            "white": settings.white,
-            "komi": komi,
-        })
-        top_games = cur.fetchall()
-
-        for game in map(dict, top_games):
-            position_analysis.games.append(GameInfo(
-                playtak_id = game['playtak_id'],
-                result = game['result'],
-                white = PlayerInfo(name=game['white'], rating=game['rating_white']),
-                black = PlayerInfo(name=game['black'], rating=game['rating_black']),
-                komi = float(game['komi'] or 0) / 2,
-                date = datetime.utcfromtimestamp(game['date']/1000).isoformat(),
-            ))
-
-        cur.close()
-
-        return position_analysis
+            return position_analysis
 
 # for access of specific DB
 # not implemented because we use only one DB currently
