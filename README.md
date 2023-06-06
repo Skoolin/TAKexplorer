@@ -30,6 +30,8 @@ When querying the `opening` endpoints with `POST` the results can be filtered wi
     "min_rating": 1700,  // minimum value depends on the database
     "max_suggested_moves": 20,  // how many moves to return
     "include_bot_games": false,  // might not be possible, depending on the used database
+    "min_date": "2023-01-01T00:00:00",  // includeo only games after this date - null to omit
+    "max_date": "2023-03-30T00:00:00",  // include only games before this date - null to omit
 }
 ```
 

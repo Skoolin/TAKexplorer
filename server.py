@@ -64,6 +64,9 @@ class AnalysisSettings:
     max_suggested_moves: int = MAX_SUGGESTED_MOVES
     include_bot_games: bool = False
     komi: Optional[Union[float, list[float]]] = None
+    min_date: Optional[str] = None  # ISO-format
+    max_date: Optional[str] = None  # ISO-format
+
 
 @dataclass
 class PositionAnalysis:
@@ -89,6 +92,15 @@ app.config['SCHEDULER_API_ENABLED'] = True
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
+
+def datetime_from(isoformat: str):
+    return datetime.fromisoformat(isoformat)
+
+def playtak_timestamp_from(isoformat: str) -> int:
+    return round(datetime_from(isoformat).timestamp() * 1000, None)
+
+def isoformat_from(playtak_timestamp: int) -> str:
+    return datetime.utcfromtimestamp(playtak_timestamp / 1000).isoformat()
 
 def to_symmetric_tps(tps: str) -> tuple[str, TpsSymmetry]:
     tps_l = tps.split(' ')
@@ -200,9 +212,12 @@ def get_position_analysis(
 ) -> PositionAnalysis:
     print(f'requested position with white: {settings.white}, black: {settings.black}, min. min_rating: {settings.min_rating}, tps: {tps}')
 
+    print("Searching with pre", config, settings)
     settings.min_rating = max(config.min_rating, settings.min_rating)
     settings.include_bot_games = config.include_bot_games and settings.include_bot_games
-    print("Searching with", config, settings)
+    settings.min_date = datetime_from(settings.min_date).isoformat() if settings.min_date else None
+    settings.max_date = datetime_from(settings.max_date).isoformat() if settings.max_date else None
+    print("Searching with post", config, settings)
 
     # we don't care about move number:
     sym_tps, symmetry = to_symmetric_tps(tps)
@@ -267,6 +282,17 @@ def get_position_analysis(
             # the one making the response knows, what was actually applied
             settings.komi = [k / 2 for k in komi] if komi else None
 
+            min_date_str = "AND games.date >= :min_date" if settings.min_date else ""
+            max_date_str = "AND games.date <= :max_date" if settings.max_date else ""
+
+            default_query_vars = {
+                "min_rating": settings.min_rating,
+                "min_date": playtak_timestamp_from(settings.min_date) if settings.min_date else None,
+                "max_date": playtak_timestamp_from(settings.max_date) if settings.max_date else None,
+                **white_vals,
+                **black_vals,
+                **komi_vals,
+            }
 
             for (move, position_id) in moves_list:
                 if position_id in explored_position_ids:
@@ -274,24 +300,21 @@ def get_position_analysis(
                 explored_position_ids.add(position_id)
 
                 select_games_sql = f"""
-                        SELECT games.result, count(games.result) AS count
-                        FROM game_position_xref, games, positions
-                        WHERE game_position_xref.position_id = positions.id
-                            AND games.id = game_position_xref.game_id
-                            AND positions.id = {position_id}
-                            AND games.rating_white >= :min_rating
-                            AND games.rating_black >= :min_rating
-                            {white_str}
-                            {black_str}
-                            {komi_str}
-                        GROUP BY games.result
-                            """
-                cur.execute(select_games_sql, {
-                    "min_rating": settings.min_rating,
-                    **white_vals,
-                    **black_vals,
-                    **komi_vals,
-                })
+                    SELECT games.result, count(games.result) AS count
+                    FROM game_position_xref, games, positions
+                    WHERE game_position_xref.position_id = positions.id
+                        AND games.id = game_position_xref.game_id
+                        AND positions.id = {position_id}
+                        AND games.rating_white >= :min_rating
+                        AND games.rating_black >= :min_rating
+                        {min_date_str}
+                        {max_date_str}
+                        {white_str}
+                        {black_str}
+                        {komi_str}
+                    GROUP BY games.result
+                """
+                cur.execute(select_games_sql, default_query_vars)
                 exe_res = list(cur.fetchall())
                 if len(exe_res) == 0:
                     continue
@@ -329,26 +352,26 @@ def get_position_analysis(
 
             # get top games
             select_games_sql = f"""
-                    SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.komi, games.rating_white, games.rating_black, games.date,
-                        game_position_xref.game_id, game_position_xref.position_id,
-                        positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
-                    FROM game_position_xref, games, positions
-                    WHERE game_position_xref.position_id=positions.id
-                        AND games.id = game_position_xref.game_id
-                        AND positions.tps = :sym_tps
-                        AND games.rating_white >= :min_rating
-                        AND games.rating_black >= :min_rating
-                        {white_str}
-                        {black_str}
-                        {komi_str}
-                    ORDER BY AVG_rating DESC
-                    LIMIT {MAX_GAME_EXAMPLES};"""
+                SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.komi, games.rating_white, games.rating_black, games.date,
+                    game_position_xref.game_id, game_position_xref.position_id,
+                    positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
+                FROM game_position_xref, games, positions
+                WHERE game_position_xref.position_id=positions.id
+                    AND games.id = game_position_xref.game_id
+                    AND positions.tps = :sym_tps
+                    AND games.rating_white >= :min_rating
+                    AND games.rating_black >= :min_rating
+                    {min_date_str}
+                    {max_date_str}
+                    {white_str}
+                    {black_str}
+                    {komi_str}
+                ORDER BY AVG_rating DESC
+                LIMIT {MAX_GAME_EXAMPLES};
+            """
             cur.execute(select_games_sql, {
                 'sym_tps': sym_tps,
-                "min_rating": settings.min_rating,
-                **white_vals,
-                **black_vals,
-                **komi_vals,
+                **default_query_vars,
             })
             top_games = cur.fetchall()
 
@@ -359,7 +382,7 @@ def get_position_analysis(
                     white = PlayerInfo(name=game['white'], rating=game['rating_white']),
                     black = PlayerInfo(name=game['black'], rating=game['rating_black']),
                     komi = float(game['komi'] or 0) / 2,
-                    date = datetime.utcfromtimestamp(game['date']/1000).isoformat(),
+                    date = isoformat_from(game['date']),
                 ))
 
             return position_analysis
