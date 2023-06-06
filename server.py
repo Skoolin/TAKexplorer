@@ -5,7 +5,7 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 from contextlib import closing
 
 import requests
@@ -57,12 +57,12 @@ class GameInfo:
 
 @dataclass
 class AnalysisSettings:
-    white: Optional[str] = None
-    black: Optional[str] = None
+    white: Optional[Union[str, list[str]]] = None
+    black: Optional[Union[str, list[str]]] = None
     min_rating: int = 0
     max_suggested_moves: int = MAX_SUGGESTED_MOVES
     include_bot_games: bool = False
-    komi: Optional[float] = None
+    komi: Optional[Union[float, list[float]]] = None
 
 @dataclass
 class PositionAnalysis:
@@ -226,13 +226,37 @@ def get_position_analysis(
             total_wwins = 0
             total_bwins = 0
             total_draws = 0
+            def build_condition(
+                field_name: str,
+                values: Optional[Union[list[str], list[int], list[float], int, float, str]]
+            ):
+                """
+                Returns a partial SQL condition checking that `field_name` equals or is in `values`
+                """
+                if values == [] or values is None or values == "":  # intentionally allow e.g. `0``
+                    return "", {}
 
-            white_str = "AND games.white = :white" if settings.white else ""
-            black_str = "AND games.black = :black" if settings.black else ""
-            komi_str  = "AND games.komi = :komi" if settings.komi is not None else ""
+                if isinstance(values, list) and len(values) == 1:
+                    values = values[0]
+
+                if isinstance(values, list):
+                    kv_map = {f'{field_name}{i}':v for i, v in enumerate(values)}
+                    field_names = [f":{k}" for k in kv_map.keys()]
+                    return f"AND games.{field_name} IN ({','.join(field_names)})", kv_map
+
+                return f"AND games.{field_name} = :{field_name}", { field_name: values }
+
+            white_str, white_vals = build_condition("white", settings.white) # "AND games.white = :white" if settings.white else ""
+            print("white", white_str, white_vals)
+            black_str, black_vals = build_condition("black", settings.black) # "AND games.black = :black" if settings.black else ""
 
             # db stores komi as an integer (double of what it actually is)
-            komi: Optional[int] = round(settings.komi * 2, None) if settings.komi is not None else None
+            komi_raw: Optional[list[float]] = settings.komi if isinstance(settings.komi, list) \
+                else [settings.komi] if settings.komi is not None \
+                else None
+            komi: Optional[list[int]] = [round(k * 2, None) for k in komi_raw] if komi_raw else None
+            komi_str, komi_vals  = build_condition("komi", komi) # "AND games.komi = :komi" if settings.komi is not None else ""
+
 
             for (move, position_id) in moves_list:
                 if position_id in explored_position_ids:
@@ -254,9 +278,9 @@ def get_position_analysis(
                             """
                 cur.execute(select_games_sql, {
                     "min_rating": settings.min_rating,
-                    "white": settings.white,
-                    "black": settings.black,
-                    "komi": komi,
+                    **white_vals,
+                    **black_vals,
+                    **komi_vals,
                 })
                 exe_res = list(cur.fetchall())
                 if len(exe_res) == 0:
@@ -312,9 +336,9 @@ def get_position_analysis(
             cur.execute(select_games_sql, {
                 'sym_tps': sym_tps,
                 "min_rating": settings.min_rating,
-                "black": settings.black,
-                "white": settings.white,
-                "komi": komi,
+                **white_vals,
+                **black_vals,
+                **komi_vals,
             })
             top_games = cur.fetchall()
 
