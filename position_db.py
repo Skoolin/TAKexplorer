@@ -28,17 +28,18 @@ class PositionDataBase(PositionProcessor):
                 komi integer,
                 rating_white integer DEFAULT 1000,
                 rating_black integer DEFAULT 1000,
-                date integer
+                date integer,
+                tournament integer
             );
             """,
-                                """
+            """
             CREATE TABLE IF NOT EXISTS positions (
                 id integer PRIMARY KEY,
                 tps text UNIQUE,
                 moves text
             );
             """,
-                                """
+            """
             CREATE TABLE IF NOT EXISTS game_position_xref (
                 id integer PRIMARY KEY,
                 game_id integer,
@@ -58,6 +59,7 @@ class PositionDataBase(PositionProcessor):
             "CREATE INDEX IF NOT EXISTS idx_games_rating_black ON games (rating_black);",
             "CREATE INDEX IF NOT EXISTS idx_games_komi ON games (komi);",
             "CREATE INDEX IF NOT EXISTS idx_games_date ON games (date);",
+            "CREATE INDEX IF NOT EXISTS idx_games_tournament ON games (tournament);",
         ]
 
         try:
@@ -211,12 +213,13 @@ class PositionDataBase(PositionProcessor):
             rating_white: int,
             rating_black: int,
             date: int, # timestamp
+            tournament: bool
     ) -> int:
         assert self.conn is not None
 
         insert_game_data_sql = f"""
-            INSERT INTO games (playtak_id, size, white, black, result, komi, rating_white, rating_black, 'date')
-            VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', {komi}, {rating_white}, {rating_black}, {date})
+            INSERT INTO games (playtak_id, size, white, black, result, komi, rating_white, rating_black, 'date', tournament)
+            VALUES ('{playtak_id}', '{size}', '{white_name}', '{black_name}', '{result}', {komi}, {rating_white}, {rating_black}, {date}, {tournament})
             RETURNING id;
         """ # use RETURNING so that we can get the inserted id after the query
 

@@ -29,6 +29,7 @@ def add_game(game: dict, dp: PositionProcessor, max_plies=sys.maxsize):
         rating_white=game['rating_white'],
         rating_black=game['rating_black'],
         date=game['date'],
+        tournament=bool(game['tournament'])
     )
 
     # make all moves

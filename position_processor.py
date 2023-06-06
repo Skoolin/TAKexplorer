@@ -18,6 +18,7 @@ class PositionProcessor(ABC):
         rating_white: int,
         rating_black: int,
         date: int, # datetime timestamp
+        tournament: bool,
     ) -> int:
         pass
 

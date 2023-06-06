@@ -29,8 +29,19 @@ class StatisticsGenerator(PositionProcessor):
         self.b_cap_24 = {'white': 0, 'black': 0, 'draw': 0}
         self.cap_24 = [self.w_cap_24, self.b_cap_24]
 
-    def add_game(self, size: int, playtak_id: int, white_name: str, black_name: str, ptn: str, result: str,
-                 rating_white: int, rating_black: int) -> int:
+    def add_game(
+        self,
+        size: int,
+        playtak_id: int,
+        white_name: str,
+        black_name: str,
+        result: str,
+        komi: int,
+        rating_white: int,
+        rating_black: int,
+        date: int, # timestamp
+        tournament: bool
+    ) -> int:
         self.reset_game_data(result)
         return 0
 

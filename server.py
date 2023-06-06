@@ -55,6 +55,7 @@ class GameInfo:
     black: PlayerInfo
     date: str # isoformat utc
     komi: float
+    tournament: bool
 
 @dataclass
 class AnalysisSettings:
@@ -66,6 +67,7 @@ class AnalysisSettings:
     komi: Optional[Union[float, list[float]]] = None
     min_date: Optional[str] = None  # ISO-format
     max_date: Optional[str] = None  # ISO-format
+    tournament: Optional[bool] = None
 
 
 @dataclass
@@ -212,12 +214,16 @@ def get_position_analysis(
 ) -> PositionAnalysis:
     print(f'requested position with white: {settings.white}, black: {settings.black}, min. min_rating: {settings.min_rating}, tps: {tps}')
 
-    print("Searching with pre", config, settings)
     settings.min_rating = max(config.min_rating, settings.min_rating)
     settings.include_bot_games = config.include_bot_games and settings.include_bot_games
     settings.min_date = datetime_from(settings.min_date).isoformat() if settings.min_date else None
     settings.max_date = datetime_from(settings.max_date).isoformat() if settings.max_date else None
-    print("Searching with post", config, settings)
+    if settings.tournament in [True, False, None]:
+        settings.tournament = settings.tournament
+    else:
+        raise ValueError(f"tournament field is '{settings.tournament}' of type '{type(settings.tournament)}' but should be bool or null")
+
+    print("Searching with", config, settings)
 
     # we don't care about move number:
     sym_tps, symmetry = to_symmetric_tps(tps)
@@ -251,7 +257,7 @@ def get_position_analysis(
             total_draws = 0
             def build_condition(
                 field_name: str,
-                values: Optional[Union[list[str], list[int], list[float], int, float, str]]
+                values: Optional[Union[list[str], list[int], list[float], int, float, str, bool]]
             ):
                 """
                 Returns a partial SQL condition checking that `field_name` equals or is in `values`
@@ -284,6 +290,7 @@ def get_position_analysis(
 
             min_date_str = "AND games.date >= :min_date" if settings.min_date else ""
             max_date_str = "AND games.date <= :max_date" if settings.max_date else ""
+            tournament_str, tournament_vals = build_condition("tournament", settings.tournament)
 
             default_query_vars = {
                 "min_rating": settings.min_rating,
@@ -292,6 +299,7 @@ def get_position_analysis(
                 **white_vals,
                 **black_vals,
                 **komi_vals,
+                **tournament_vals,
             }
 
             for (move, position_id) in moves_list:
@@ -307,6 +315,7 @@ def get_position_analysis(
                         AND positions.id = {position_id}
                         AND games.rating_white >= :min_rating
                         AND games.rating_black >= :min_rating
+                        {tournament_str}
                         {min_date_str}
                         {max_date_str}
                         {white_str}
@@ -352,7 +361,7 @@ def get_position_analysis(
 
             # get top games
             select_games_sql = f"""
-                SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.komi, games.rating_white, games.rating_black, games.date,
+                SELECT games.id, games.playtak_id, games.white, games.black, games.result, games.komi, games.rating_white, games.rating_black, games.date, games.tournament,
                     game_position_xref.game_id, game_position_xref.position_id,
                     positions.id, positions.tps, (games.rating_white+games.rating_black)/2 AS avg_rating
                 FROM game_position_xref, games, positions
@@ -361,6 +370,7 @@ def get_position_analysis(
                     AND positions.tps = :sym_tps
                     AND games.rating_white >= :min_rating
                     AND games.rating_black >= :min_rating
+                    {tournament_str}
                     {min_date_str}
                     {max_date_str}
                     {white_str}
@@ -383,6 +393,7 @@ def get_position_analysis(
                     black = PlayerInfo(name=game['black'], rating=game['rating_black']),
                     komi = float(game['komi'] or 0) / 2,
                     date = isoformat_from(game['date']),
+                    tournament=bool(game['tournament']),
                 ))
 
             return position_analysis
