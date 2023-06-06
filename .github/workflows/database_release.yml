@@ -1,7 +1,7 @@
 # generates an opening database from Playtak.com games database
 
 name: create database release
-  
+
 on:
 #  schedule:
 #    # * is a special character in YAML so you have to quote this string
@@ -34,7 +34,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: release_04
+        tag_name: release_05
         release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false

@@ -1,7 +1,6 @@
 import getopt
 import sys
 
-import data_collector
 import db_extractor
 import ptn_parser
 from position_db import PositionDataBase
@@ -15,7 +14,6 @@ def main(args):
     if task == 'extract':
         db_file = ''
         target_file = ''
-        ptn_file = 'data/games.ptn'
 
         num_plies = 1
         num_games = sys.maxsize
@@ -57,17 +55,26 @@ def main(args):
                 player_black = arg
 
         with PositionDataBase(target_file) as db:
-            games = db_extractor.get_games_from_db(db_file, num_plies, num_games, min_rating, player_black, player_white, db.max_id)
+            games = db_extractor.get_games_from_db(
+                db_file,
+                num_plies=num_plies,
+                num_games=num_games,
+                min_rating=min_rating,
+                player_black=player_black,
+                player_white=player_white,
+                start_id=db.max_id,
+                exclude_bots=True,
+            )
             ptn_parser.add_games_to_db(games, db)
             db.commit()
 
     elif task == 'explore':
+        import data_collector  # pylint: disable=import-outside-toplevel
         data_collector.collector_main(argv[0])
 
     elif task == 'stats':
         db_file = ''
         target_file = ''
-        ptn_file = 'data/games.ptn'
 
         num_plies = 1
         num_games = sys.maxsize
@@ -108,7 +115,15 @@ def main(args):
             elif opt in ('-b', '--black'):
                 player_black = arg
 
-        games = db_extractor.get_games_from_db(db_file, num_plies, num_games, min_rating, player_black, player_white)
+        games = db_extractor.get_games_from_db(
+            db_file,
+            num_plies=num_plies,
+            num_games=num_games,
+            min_rating=min_rating,
+            player_black=player_black,
+            player_white=player_white,
+            exclude_bots=True
+        )
 
         stats_gen = StatisticsGenerator(target_file)
         ptn_parser.add_games_to_db(games, stats_gen)
