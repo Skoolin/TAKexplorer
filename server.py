@@ -27,7 +27,7 @@ MAX_GAME_EXAMPLES = 4
 MAX_SUGGESTED_MOVES = 20
 MAX_PLIES = 30
 NUM_PLIES = 12
-NUM_GAMES = 10_000
+NUM_GAMES = 20_000
 MIN_RATING = 1200
 
 @dataclass
@@ -114,20 +114,24 @@ def to_symmetric_tps(tps: str) -> tuple[str, TpsSymmetry]:
 
 
 def download_playtak_db(url: str, destination: str):
+    playtak_db_min_age = timedelta(hours=10)
     if (
-        not os.path.exists(destination)
-        or (time.time() - os.stat(destination).st_mtime) > timedelta(hours=10).seconds
+        os.path.exists(destination)
+        and (time.time() - os.stat(destination).st_mtime) <= playtak_db_min_age.seconds
     ):
-        print("Fetching latest playtak games DB...")
-        try:
-            with requests.get(url, timeout=None) as requ, open(destination,'wb') as output_file:
-                output_file.write(requ.content)
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            print("Cannot reach playtak server")
-            if not os.path.exists(destination):
-                print("No saved games database. exiting.")
-                raise Exception("Failed to download playtak games database") from exc # pylint: disable=broad-exception-raised
-            print("Using potentially outdated save of games database.")
+        print(f"Playtak database already exists and is less than {playtak_db_min_age} old")
+        return
+
+    print("Fetching latest playtak games DB...")
+    try:
+        with requests.get(url, timeout=None) as requ, open(destination,'wb') as output_file:
+            output_file.write(requ.content)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        print("Cannot reach playtak server")
+        if not os.path.exists(destination):
+            print("No saved games database. exiting.")
+            raise Exception("Failed to download playtak games database") from exc # pylint: disable=broad-exception-raised
+        print("Using potentially outdated save of games database.")
 
 def update_openings_db(playtak_db: str, config: OpeningsDbConfig):
     print(f"extracting games from {playtak_db} to {config.db_file_name}")
@@ -214,7 +218,7 @@ def get_position_analysis(
 ) -> PositionAnalysis:
     print(f'requested position with white: {settings.white}, black: {settings.black}, min. min_rating: {settings.min_rating}, tps: {tps}')
 
-    settings.min_rating = max(config.min_rating, settings.min_rating)
+    settings.min_rating = max(config.min_rating, settings.min_rating) if settings.min_rating else config.min_rating
     settings.include_bot_games = config.include_bot_games and settings.include_bot_games
     settings.min_date = datetime_from(settings.min_date).isoformat() if settings.min_date else None
     settings.max_date = datetime_from(settings.max_date).isoformat() if settings.max_date else None
