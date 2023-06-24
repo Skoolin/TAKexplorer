@@ -12,7 +12,7 @@ def flip_tps(tps: str) -> str:
 def rotate_mat(board):
     result = []
     for i in range(0, len(board[0])):
-        result.append(list(map(lambda x: x[i], board)))
+        result.append([x[i] for x in board])
     result.reverse()
     return result
 
@@ -120,8 +120,8 @@ def rotate_move(move: str) -> str:
     move = move.replace('<', '-')
     move = move.replace('z', '<')
 
-    for i in range(0, len(move)):
-        if move[i].islower():
+    for (i, c) in enumerate(move):
+        if c.islower():
             return move[0:i] + rot_loc(move[i:i + 2]) + move[i + 2:]
 
     sys.exit(2)
