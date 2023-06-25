@@ -39,12 +39,13 @@ When querying the `opening` endpoints with `POST` the results can be filtered wi
 
 ## Setup
 ### Requirements
-- Python `>= 3.9`
+- Python `>= 3.11`
 - pip
 - sqlite `>=3.35` (for [`RETURNING`](https://www.sqlite.org/lang_returning.html))
 ### Install dependencies
 ```sh
 pip install pipenv
+pipenv --rm # remove environment if python version was upgraded
 pipenv install
 ```
 
