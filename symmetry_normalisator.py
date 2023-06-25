@@ -115,12 +115,11 @@ def swapint(s: str) -> str:
 
 
 def rot_loc(location: str):
-    c = location[0]
-    i = int(location[1])
-    newi = str('abcdef'.index(c)+1)
-    newc = 'fedcba'[i-1]
-    return newc+newi
-
+    col = location[0]
+    row = int(location[1])
+    new_row = ord(col) - ord('a') + 1  # column char to row number
+    new_col = 'fedcba'[row-1] # row number to column char
+    return new_col + str(new_row)
 
 def rotate_move(move: str) -> str:
     # a1 -> f1
