@@ -8,7 +8,7 @@ NormalizedTpsString = NewType("NormalizedTpsString", str)
 
 # only works with size 6!!
 
-def flip_tps(tps: TpsString) -> TpsString:
+def flip_tps(tps: TpsStringExpanded) -> TpsStringExpanded:
     spl = tps.split('/')
     spl.reverse()
     return '/'.join(spl)  # type: ignore
@@ -38,10 +38,7 @@ def collapse_tps_xn(tps: TpsStringExpanded) -> TpsString:
     return tps # type: ignore
 
 
-def rotate_tps(tps: TpsString) -> TpsString:
-    # todo improve performance by not expanding so often
-    tps_expanded = expand_tps_xn(tps)
-
+def rotate_tps(tps_expanded: TpsStringExpanded) -> TpsStringExpanded:
     splits = tps_expanded.split('/')
 
     board = []
@@ -53,24 +50,25 @@ def rotate_tps(tps: TpsString) -> TpsString:
 
     tps_expanded_rotated: TpsStringExpanded = '/'.join([','.join(a) for a in board]) # type: ignore
 
-    return collapse_tps_xn(tps_expanded_rotated)
+    return tps_expanded_rotated
 
 
 def get_tps_orientation(tps: TpsString) -> Tuple[NormalizedTpsString, TpsSymmetry]:
     # ignore ending (current player)
     tps = tps[:-4] # type: ignore
 
+    tps_expanded = expand_tps_xn(tps)
     o = 0
-    best_tps = tps
+    best_tps = tps_expanded
 
-    rot_tps = tps
+    rot_tps = tps_expanded
     for i in range(1, 4):
         rot_tps = rotate_tps(rot_tps)
         if rot_tps < best_tps:
             o = i
             best_tps = rot_tps
 
-    rot_tps = flip_tps(tps)
+    rot_tps = flip_tps(tps_expanded)
     if rot_tps < best_tps:
         o = 4
         best_tps = rot_tps
@@ -83,20 +81,21 @@ def get_tps_orientation(tps: TpsString) -> Tuple[NormalizedTpsString, TpsSymmetr
     return normalized_tps, TpsSymmetry(o)
 
 
-def transform_tps(tps: TpsString, orientation: int) -> str:
+def transform_tps(tps: TpsString, orientation: int) -> TpsString:
     # remove current player and current move
     ending = tps[-4:]
     tps = tps[:-4] # type: ignore
-
+    tps_expanded = expand_tps_xn(tps)
     if orientation > 3:
-        tps = flip_tps(tps)
+        tps_expanded = flip_tps(tps_expanded)
         for _ in range(4, orientation):
-            tps = rotate_tps(tps)
+            tps_expanded = rotate_tps(tps_expanded)
     else:
         for _ in range(0, orientation):
-            tps = rotate_tps(tps)
+            tps_expanded = rotate_tps(tps_expanded)
 
-    return tps + ending
+    tps_collapsed: TpsString = collapse_tps_xn(tps_expanded) + ending # type: ignore
+    return tps_collapsed
 
 
 def transposed_transform_tps(tps: str, orientation: TpsSymmetry) -> str:
