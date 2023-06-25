@@ -2,7 +2,8 @@ import sys
 from typing import NewType, Tuple
 
 TpsSymmetry = NewType("TpsSymmetry", int)
-TpsString = NewType("TpsString", str)
+TpsString = NewType("TpsString", str) # with xn collapsed (x,x,x,... -> xn)
+TpsStringExpanded = NewType("TpsStringExpanded", str) # with xn expanded to x,x,x...
 NormalizedTpsString = NewType("NormalizedTpsString", str)
 
 # only works with size 6!!
@@ -20,16 +21,28 @@ def rotate_mat(board):
     result.reverse()
     return result
 
-
-def rotate_tps(tps: TpsString) -> TpsString:
-    # todo improve performance by not reverting xn->x,x,x
+def expand_tps_xn(tps: TpsString) -> TpsStringExpanded:
     tps = tps.replace('x6', 'x,x,x,x,x,x') # type: ignore
     tps = tps.replace('x5', 'x,x,x,x,x') # type: ignore
     tps = tps.replace('x4', 'x,x,x,x') # type: ignore
     tps = tps.replace('x3', 'x,x,x') # type: ignore
     tps = tps.replace('x2', 'x,x') # type: ignore
+    return tps # type: ignore
 
-    splits = tps.split('/')
+def collapse_tps_xn(tps: TpsStringExpanded) -> TpsString:
+    tps = tps.replace('x6', 'x,x,x,x,x,x') # type: ignore
+    tps = tps.replace('x5', 'x,x,x,x,x') # type: ignore
+    tps = tps.replace('x4', 'x,x,x,x') # type: ignore
+    tps = tps.replace('x3', 'x,x,x') # type: ignore
+    tps = tps.replace('x2', 'x,x') # type: ignore
+    return tps # type: ignore
+
+
+def rotate_tps(tps: TpsString) -> TpsString:
+    # todo improve performance by not expanding so often
+    tps_expanded = expand_tps_xn(tps)
+
+    splits = tps_expanded.split('/')
 
     board = []
 
@@ -38,15 +51,9 @@ def rotate_tps(tps: TpsString) -> TpsString:
 
     board = rotate_mat(board)
 
-    tps = '/'.join([','.join(a) for a in board]) # type: ignore
+    tps_expanded_rotated: TpsStringExpanded = '/'.join([','.join(a) for a in board]) # type: ignore
 
-    tps = tps.replace('x,x,x,x,x,x', 'x6') # type: ignore
-    tps = tps.replace('x,x,x,x,x', 'x5') # type: ignore
-    tps = tps.replace('x,x,x,x', 'x4') # type: ignore
-    tps = tps.replace('x,x,x', 'x3') # type: ignore
-    tps = tps.replace('x,x', 'x2') # type: ignore
-
-    return tps
+    return collapse_tps_xn(tps_expanded_rotated)
 
 
 def get_tps_orientation(tps: TpsString) -> Tuple[NormalizedTpsString, TpsSymmetry]:
