@@ -19,7 +19,7 @@ import ptn_parser
 import symmetry_normalisator
 from db_extractor import get_games_from_db, get_ptn
 from position_db import PositionDataBase
-from symmetry_normalisator import TpsSymmetry
+from symmetry_normalisator import NormalizedTpsString, TpsString, TpsSymmetry
 
 DATA_DIR = 'data'
 PLAYTAK_GAMES_DB = os.path.join(DATA_DIR, 'games_anon.db')
@@ -104,13 +104,11 @@ def playtak_timestamp_from(isoformat: str) -> int:
 def isoformat_from(playtak_timestamp: int) -> str:
     return datetime.utcfromtimestamp(playtak_timestamp / 1000).isoformat()
 
-def to_symmetric_tps(tps: str) -> tuple[str, TpsSymmetry]:
+def to_symmetric_tps(tps: TpsString) -> tuple[NormalizedTpsString, TpsSymmetry]:
     tps_l = tps.split(' ')
     tps_l[2] = '1'
-    tps = ' '.join(tps_l)
-    symmetry = symmetry_normalisator.get_tps_orientation(tps)
-    sym_tps = symmetry_normalisator.transform_tps(tps, symmetry)
-    return sym_tps, symmetry
+    tps = ' '.join(tps_l) # type: ignore
+    return symmetry_normalisator.get_tps_orientation(tps)
 
 
 def download_playtak_db(url: str, destination: str):
@@ -214,7 +212,7 @@ def get_game(game_id):
 def get_position_analysis(
     config: OpeningsDbConfig,
     settings: AnalysisSettings,
-    tps: str,
+    tps: TpsString,
 ) -> PositionAnalysis:
     print(f'requested position with white: {settings.white}, black: {settings.black}, min. min_rating: {settings.min_rating}, tps: {tps}')
 
@@ -417,8 +415,8 @@ def get_position_with_db_id(db_id: int, tps: str):
 
     if db_id >= len(openings_db_configs):
         raise NotFound("database index out of range, query api/v1/databases for options")
-
-    analysis = get_position_analysis(openings_db_configs[db_id], settings, tps)
+    tps_string: TpsString = tps # type: ignore
+    analysis = get_position_analysis(openings_db_configs[db_id], settings, tps_string)
     return jsonify(analysis)
 
 @app.route('/api/v1/opening/<path:tps>', methods=['POST', 'GET'])

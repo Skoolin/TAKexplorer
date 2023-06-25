@@ -110,22 +110,25 @@ class PositionDataBase(PositionProcessor):
         assert self.conn is not None
         self.conn.commit()
 
-    def add_position(self, game_id: int, move, result: str, tps: str, next_tps: Union[str, None], tak: GameState) -> int:
+    def add_position(
+        self,
+        game_id: int,
+        move,
+        result: str,
+        tps: symmetry_normalisator.TpsString,
+        next_tps: Union[symmetry_normalisator.TpsString, None],
+        tak: GameState
+    ) -> int:
         assert self.conn is not None
         curr = self.conn.cursor()
 
         # normalize for symmetries
-        own_symmetry = symmetry_normalisator.get_tps_orientation(tps)
-        tps = symmetry_normalisator.transform_tps(tps, own_symmetry)
-
-        if next_tps is not None:
-            next_symmetry = symmetry_normalisator.get_tps_orientation(next_tps)
-            next_tps = symmetry_normalisator.transform_tps(next_tps, next_symmetry)
+        tps_normalized, own_symmetry = symmetry_normalisator.get_tps_orientation(tps)
 
         select_position_row_sql = f"""
             SELECT *
             FROM positions
-            WHERE tps = '{tps}'
+            WHERE tps = '{tps_normalized}'
             ;
         """
 
@@ -134,15 +137,16 @@ class PositionDataBase(PositionProcessor):
 
         # if this position does not exist, create it
         if row is None:
-            self.create_position_entry(tps)
+            self.create_position_entry(tps_normalized)
             curr.execute(select_position_row_sql)
             row = curr.fetchone()
 
         if next_tps is not None:
+            next_tps_normalized, _next_symmetry = symmetry_normalisator.get_tps_orientation(next_tps)
             select_next_position_row_sql = f"""
                 SELECT *
                 FROM positions
-                WHERE tps = '{next_tps}'
+                WHERE tps = '{next_tps_normalized}'
                 ;
             """
             curr.execute(select_next_position_row_sql)
@@ -150,7 +154,7 @@ class PositionDataBase(PositionProcessor):
 
             # if next position does not exist, create it
             if next_pos is None:
-                self.create_position_entry(next_tps)
+                self.create_position_entry(next_tps_normalized)
                 curr.execute(select_next_position_row_sql)
                 next_pos = curr.fetchone()
 
