@@ -104,6 +104,10 @@ def transposed_transform_tps(tps: str, orientation: TpsSymmetry) -> str:
 
 
 def swapchars(s: str, a: str, b: str) -> str:
+    """
+    note: nitzel: This is very performant,
+        iterating only once over the string via regex or list comprehension is ~4x slower
+    """
     s = s.replace(a, 'z')
     s = s.replace(b, a)
     s = s.replace('z', b)
@@ -138,8 +142,8 @@ def rotate_move(move: str) -> str:
 
 
 def swapsquare(move: str):
-    for i in range(0, len(move) - 1):
-        if move[i].islower():
+    for (i, c) in enumerate(move):
+        if c.islower():
             return move[:i+1] + swapint(move[i + 1]) + move[i + 2:]
     raise ValueError(f"Move '{move}' does not contain any lowercase characters and thus is no proper move")
 
