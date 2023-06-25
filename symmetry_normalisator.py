@@ -1,12 +1,16 @@
 import sys
-from typing import NewType
+from typing import NewType, Tuple
+
+TpsSymmetry = NewType("TpsSymmetry", int)
+TpsString = NewType("TpsString", str)
+NormalizedTpsString = NewType("NormalizedTpsString", str)
 
 # only works with size 6!!
 
-def flip_tps(tps: str) -> str:
+def flip_tps(tps: TpsString) -> TpsString:
     spl = tps.split('/')
     spl.reverse()
-    return '/'.join(spl)
+    return '/'.join(spl)  # type: ignore
 
 
 def rotate_mat(board):
@@ -17,12 +21,13 @@ def rotate_mat(board):
     return result
 
 
-def rotate_tps(tps: str) -> str:
-    tps = tps.replace('x6', 'x,x,x,x,x,x')
-    tps = tps.replace('x5', 'x,x,x,x,x')
-    tps = tps.replace('x4', 'x,x,x,x')
-    tps = tps.replace('x3', 'x,x,x')
-    tps = tps.replace('x2', 'x,x')
+def rotate_tps(tps: TpsString) -> TpsString:
+    # todo improve performance by not reverting xn->x,x,x
+    tps = tps.replace('x6', 'x,x,x,x,x,x') # type: ignore
+    tps = tps.replace('x5', 'x,x,x,x,x') # type: ignore
+    tps = tps.replace('x4', 'x,x,x,x') # type: ignore
+    tps = tps.replace('x3', 'x,x,x') # type: ignore
+    tps = tps.replace('x2', 'x,x') # type: ignore
 
     splits = tps.split('/')
 
@@ -33,21 +38,20 @@ def rotate_tps(tps: str) -> str:
 
     board = rotate_mat(board)
 
-    tps = '/'.join([','.join(a) for a in board])
+    tps = '/'.join([','.join(a) for a in board]) # type: ignore
 
-    tps = tps.replace('x,x,x,x,x,x', 'x6')
-    tps = tps.replace('x,x,x,x,x', 'x5')
-    tps = tps.replace('x,x,x,x', 'x4')
-    tps = tps.replace('x,x,x', 'x3')
-    tps = tps.replace('x,x', 'x2')
+    tps = tps.replace('x,x,x,x,x,x', 'x6') # type: ignore
+    tps = tps.replace('x,x,x,x,x', 'x5') # type: ignore
+    tps = tps.replace('x,x,x,x', 'x4') # type: ignore
+    tps = tps.replace('x,x,x', 'x3') # type: ignore
+    tps = tps.replace('x,x', 'x2') # type: ignore
 
     return tps
 
-TpsSymmetry = NewType("TpsSymmetry", int)
 
-def get_tps_orientation(tps: str) -> TpsSymmetry:
+def get_tps_orientation(tps: TpsString) -> Tuple[NormalizedTpsString, TpsSymmetry]:
     # ignore ending (current player)
-    tps = tps[:-4]
+    tps = tps[:-4] # type: ignore
 
     o = 0
     best_tps = tps
@@ -68,13 +72,14 @@ def get_tps_orientation(tps: str) -> TpsSymmetry:
         if rot_tps < best_tps:
             o = i
             best_tps = rot_tps
-    return TpsSymmetry(o)
+    normalized_tps: NormalizedTpsString = best_tps # type: ignore
+    return normalized_tps, TpsSymmetry(o)
 
 
-def transform_tps(tps: str, orientation: int) -> str:
+def transform_tps(tps: TpsString, orientation: int) -> str:
     # remove current player and current move
     ending = tps[-4:]
-    tps = tps[:-4]
+    tps = tps[:-4] # type: ignore
 
     if orientation > 3:
         tps = flip_tps(tps)
@@ -131,6 +136,7 @@ def swapsquare(move: str):
     for i in range(0, len(move) - 1):
         if move[i].islower():
             return move[:i+1] + swapint(move[i + 1]) + move[i + 2:]
+    raise ValueError(f"Move '{move}' does not contain any lowercase characters and thus is no proper move")
 
 
 def transform_move(move: str, orientation: TpsSymmetry) -> str:
