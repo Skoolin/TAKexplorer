@@ -1,10 +1,6 @@
-import sys
-from typing import NewType, Tuple
+from typing import Tuple
 
-TpsSymmetry = NewType("TpsSymmetry", int)
-TpsString = NewType("TpsString", str) # with xn collapsed (x,x,x,... -> xn)
-TpsStringExpanded = NewType("TpsStringExpanded", str) # with xn expanded to x,x,x...
-NormalizedTpsString = NewType("NormalizedTpsString", str)
+from base_types import BoardSize, NormalizedTpsString, TpsString, TpsStringExpanded, TpsSymmetry
 
 # only works with size 6!!
 
@@ -22,6 +18,7 @@ def rotate_mat(board):
     return result
 
 def expand_tps_xn(tps: TpsString) -> TpsStringExpanded:
+    tps = tps.replace('x7', 'x,x,x,x,x,x,x') # type: ignore
     tps = tps.replace('x6', 'x,x,x,x,x,x') # type: ignore
     tps = tps.replace('x5', 'x,x,x,x,x') # type: ignore
     tps = tps.replace('x4', 'x,x,x,x') # type: ignore
@@ -30,11 +27,12 @@ def expand_tps_xn(tps: TpsString) -> TpsStringExpanded:
     return tps # type: ignore
 
 def collapse_tps_xn(tps: TpsStringExpanded) -> TpsString:
-    tps = tps.replace('x6', 'x,x,x,x,x,x') # type: ignore
-    tps = tps.replace('x5', 'x,x,x,x,x') # type: ignore
-    tps = tps.replace('x4', 'x,x,x,x') # type: ignore
-    tps = tps.replace('x3', 'x,x,x') # type: ignore
-    tps = tps.replace('x2', 'x,x') # type: ignore
+    tps = tps.replace('x,x,x,x,x,x,x', 'x7') # type: ignore
+    tps = tps.replace('x,x,x,x,x,x', 'x6') # type: ignore
+    tps = tps.replace('x,x,x,x,x', 'x5') # type: ignore
+    tps = tps.replace('x,x,x,x', 'x4') # type: ignore
+    tps = tps.replace('x,x,x', 'x3') # type: ignore
+    tps = tps.replace('x,x', 'x2') # type: ignore
     return tps # type: ignore
 
 
@@ -114,20 +112,21 @@ def swapchars(s: str, a: str, b: str) -> str:
     return s
 
 
-def swapint(s: str) -> str:
-    return str(int(s) * -1 + 7)
+def swapint(s: str, board_size: BoardSize) -> str:
+    return str(int(s) * -1 + board_size + 1)
 
 
-def rot_loc(location: str):
+def rot_loc(location: str, board_size: BoardSize):
     col = location[0]
     row = int(location[1])
     new_row = ord(col) - ord('a') + 1  # column char to row number
-    new_col = 'fedcba'[row-1] # row number to column char
+    new_col = chr(ord('a') + board_size - row) # row number to column char
     return new_col + str(new_row)
 
-def rotate_move(move: str) -> str:
+def rotate_move(move: str, board_size) -> str:
     # a1 -> f1
     # 3c2+12 -> 3e3<12
+    orig = move
     move = move.replace('+', 'z')
     move = move.replace('>', '+')
     move = move.replace('-', '>')
@@ -136,36 +135,41 @@ def rotate_move(move: str) -> str:
 
     for (i, c) in enumerate(move):
         if c.islower():
-            return move[0:i] + rot_loc(move[i:i + 2]) + move[i + 2:]
+            return move[0:i] + rot_loc(move[i:i + 2], board_size) + move[i + 2:]
 
-    sys.exit(2)
+    raise ValueError(f"Failed to rotate move orig='{orig}' on board_size={board_size} (result '{move}', no lower case)")
 
 
-def swapsquare(move: str):
+
+def swapsquare(move: str, board_size: BoardSize):
     for (i, c) in enumerate(move):
         if c.islower():
-            return move[:i+1] + swapint(move[i + 1]) + move[i + 2:]
+            return move[:i+1] + swapint(move[i + 1], board_size) + move[i + 2:]
     raise ValueError(f"Move '{move}' does not contain any lowercase characters and thus is no proper move")
 
 
-def transform_move(move: str, orientation: TpsSymmetry) -> str:
+def transform_move(move: str, orientation: TpsSymmetry, board_size: BoardSize) -> str:
     orig = move
     if orientation >= 4:
         move = swapchars(move, '+', '-')
-        move = swapsquare(move)
+        move = swapsquare(move, board_size)
     for _ in range(0, orientation):
-        move = rotate_move(move)
-    test_transpose = transposed_transform_move(move, orientation)
+        move = rotate_move(move, board_size)
+    test_transpose = transposed_transform_move(
+        move=move,
+        orientation=orientation,
+        board_size=board_size
+    )
     assert test_transpose == orig
     return move
 
 
-def transposed_transform_move(move: str, orientation: TpsSymmetry) -> str:
+def transposed_transform_move(move: str, orientation: TpsSymmetry, board_size: BoardSize) -> str:
     for _ in range(orientation, 4 if orientation >= 4 else 0, -1):
-        move = rotate_move(move)
-        move = rotate_move(move)
-        move = rotate_move(move)
+        move = rotate_move(move, board_size)
+        move = rotate_move(move, board_size)
+        move = rotate_move(move, board_size)
     if orientation >= 4:
         move = swapchars(move, '+', '-')
-        move = swapsquare(move)
+        move = swapsquare(move, board_size)
     return move

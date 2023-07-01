@@ -1,5 +1,6 @@
 import json
 from typing import Literal, Optional, Union
+from base_types import BoardSize
 
 from position_processor import PositionProcessor
 from tak import GameState
@@ -31,7 +32,7 @@ class StatisticsGenerator(PositionProcessor):
 
     def add_game(
         self,
-        size: int,
+        size: BoardSize,
         playtak_id: int,
         white_name: str,
         black_name: str,

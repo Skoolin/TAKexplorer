@@ -2,6 +2,7 @@ from contextlib import closing
 import os
 import sqlite3
 from typing import Optional, Union
+from base_types import BoardSize, TpsString
 
 import symmetry_normalisator
 from position_processor import PositionProcessor
@@ -115,8 +116,8 @@ class PositionDataBase(PositionProcessor):
         game_id: int,
         move,
         result: str,
-        tps: symmetry_normalisator.TpsString,
-        next_tps: Union[symmetry_normalisator.TpsString, None],
+        tps: TpsString,
+        next_tps: Union[TpsString, None],
         tak: GameState
     ) -> int:
         assert self.conn is not None
@@ -172,7 +173,11 @@ class PositionDataBase(PositionProcessor):
         # if a move is given also update the move table
         if move is not None:
             # orient move to previous symmetry
-            move = symmetry_normalisator.transform_move(move, own_symmetry)
+            move = symmetry_normalisator.transform_move(
+                move=move,
+                orientation=own_symmetry,
+                board_size=tak.size,
+            )
             position_moves = row_dict['moves']
             if position_moves != '':
                 position_moves = row_dict['moves'].split(';')
@@ -208,7 +213,7 @@ class PositionDataBase(PositionProcessor):
 
     def add_game(
             self,
-            size: int,
+            size: BoardSize,
             playtak_id: int,
             white_name: str,
             black_name: str,

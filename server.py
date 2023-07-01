@@ -7,7 +7,7 @@ import traceback
 from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
 import requests
 from flask import Flask, json, jsonify, request
@@ -19,7 +19,7 @@ import ptn_parser
 import symmetry_normalisator
 from db_extractor import get_games_from_db, get_ptn
 from position_db import PositionDataBase
-from symmetry_normalisator import NormalizedTpsString, TpsString, TpsSymmetry
+from base_types import BoardSize, NormalizedTpsString, TpsString, TpsSymmetry
 
 DATA_DIR = 'data'
 PLAYTAK_GAMES_DB = os.path.join(DATA_DIR, 'games_anon.db')
@@ -34,7 +34,7 @@ MIN_RATING = 1200
 class OpeningsDbConfig:
     min_rating: int
     include_bot_games: bool
-    size: Literal[6] = 6
+    size: BoardSize = BoardSize(6)
 
     @property
     def db_file_name(self):
@@ -82,8 +82,9 @@ class PositionAnalysis:
 
 
 openings_db_configs = [
-    OpeningsDbConfig(min_rating=MIN_RATING, include_bot_games=False, size=6),
-    OpeningsDbConfig(min_rating=1700, include_bot_games=True, size=6),
+    OpeningsDbConfig(min_rating=MIN_RATING, include_bot_games=False, size=BoardSize(6)),
+    OpeningsDbConfig(min_rating=1700, include_bot_games=True, size=BoardSize(6)),
+    OpeningsDbConfig(min_rating=1200, include_bot_games=True, size=BoardSize(7)),
 ]
 
 app = Flask(__name__)
@@ -136,6 +137,7 @@ def update_openings_db(playtak_db: str, config: OpeningsDbConfig):
     with PositionDataBase(config.db_file_name) as pos_db:
         games = get_games_from_db(
             db_file=PLAYTAK_GAMES_DB,
+            board_size=config.size,
             num_plies=NUM_PLIES,
             num_games=NUM_GAMES,
             min_rating=config.min_rating,
@@ -345,7 +347,11 @@ def get_position_analysis(
                 total_bwins += bwins
                 total_draws += draws
 
-                move = symmetry_normalisator.transposed_transform_move(move, symmetry)
+                move = symmetry_normalisator.transposed_transform_move(
+                    move,
+                    symmetry,
+                    config.size,
+                )
 
                 moves.append({"ptn": move, "white": wwins, "black": bwins, "draw": draws})
 
@@ -387,6 +393,9 @@ def get_position_analysis(
             })
             top_games = cur.fetchall()
 
+
+            # todo: normalize (rotate) game so that users aren't interrupted in their
+            # exploration with suddenly rotated games
             for game in map(dict, top_games):
                 position_analysis.games.append(GameInfo(
                     playtak_id = game['playtak_id'],

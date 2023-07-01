@@ -5,6 +5,7 @@ import tkinter
 import tkinter.font as font
 import tkinter.scrolledtext
 from PIL import Image, ImageTk
+from base_types import BoardSize
 
 import symmetry_normalisator
 from tak import GameState
@@ -52,7 +53,7 @@ class TAKexplorer:
 
     def print_all_games(self):
         tps = self.game.get_tps()
-        tps = symmetry_normalisator.transform_tps(tps, symmetry_normalisator.get_tps_orientation(tps))
+        tps = symmetry_normalisator.transform_tps(tps, symmetry_normalisator.get_tps_orientation(tps)[1])
 
         games_sql = f"""
         SELECT games.id, games.ptn, games.rating_white, games.rating_black,
@@ -84,7 +85,7 @@ class TAKexplorer:
 
         tps = self.game.get_tps()
 
-        symmetry = symmetry_normalisator.get_tps_orientation(tps)
+        symmetry = symmetry_normalisator.get_tps_orientation(tps)[1]
         sym_tps = symmetry_normalisator.transform_tps(tps, symmetry)
 
         os.system(f'TPStoPNG "{tps}" name=tak opening=no-swap')
@@ -129,11 +130,11 @@ class TAKexplorer:
             cloned_game = self.game.clone()
 
             move = r[0]
-            move = symmetry_normalisator.transposed_transform_move(move, symmetry)
+            move = symmetry_normalisator.transposed_transform_move(move, symmetry, board_size=BoardSize(6))
 
             cloned_game.move(move)
             tps = cloned_game.get_tps()
-            tps = symmetry_normalisator.transform_tps(tps, symmetry_normalisator.get_tps_orientation(tps))
+            tps = symmetry_normalisator.transform_tps(tps, symmetry_normalisator.get_tps_orientation(tps)[1])
 
             select_results_sql = f"SELECT * FROM positions WHERE tps='{tps}';"
 

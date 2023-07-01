@@ -3,6 +3,8 @@ from contextlib import closing
 from datetime import datetime, timedelta
 from typing import Optional
 
+from base_types import BoardSize
+
 BOTLIST = [
     'WilemBot',
     'TopazBot',
@@ -132,6 +134,7 @@ def get_ptn(game) -> str:
 
 def get_games_from_db(
     db_file: str,
+    board_size: BoardSize,
     num_plies: int,
     num_games: int,
     min_rating: int,
@@ -148,7 +151,7 @@ def get_games_from_db(
             f"rating_white >= {min_rating}",
             f"rating_black >= {min_rating}",
             f"id > {start_id}",
-            "size = 6",
+            f"size = {board_size}",
         ]
         if player_white is not None:
             conditions.append(f"player_white = {player_white}")
@@ -169,4 +172,5 @@ def get_games_from_db(
         ;"""
         with closing(db.execute(games_query)) as cursor:
             games = cursor.fetchall()
-            return [dict(game) for game in games]
+            games = [dict(game) for game in games]
+            return games
