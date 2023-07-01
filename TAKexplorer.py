@@ -1,5 +1,6 @@
 import getopt
 import sys
+from base_types import BoardSize
 
 import db_extractor
 import ptn_parser
@@ -57,6 +58,7 @@ def main(args):
         with PositionDataBase(target_file) as db:
             games = db_extractor.get_games_from_db(
                 db_file,
+                board_size=BoardSize(6),
                 num_plies=num_plies,
                 num_games=num_games,
                 min_rating=min_rating,
@@ -117,6 +119,7 @@ def main(args):
 
         games = db_extractor.get_games_from_db(
             db_file,
+            board_size=BoardSize(6),
             num_plies=num_plies,
             num_games=num_games,
             min_rating=min_rating,

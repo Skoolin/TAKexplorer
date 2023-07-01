@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
 from typing import Union
+from base_types import BoardSize
 
 from tak import GameState
 
@@ -9,7 +10,7 @@ class PositionProcessor(ABC):
     @abstractmethod
     def add_game(
         self,
-        size: int,
+        size: BoardSize,
         playtak_id: int,
         white_name: str,
         black_name: str,
