@@ -149,27 +149,37 @@ def swapsquare(move: str, board_size: BoardSize):
 
 
 def transform_move(move: str, orientation: TpsSymmetry, board_size: BoardSize) -> str:
-    orig = move
-    if orientation >= 4:
+    mirror: bool = orientation >= 4
+    number_of_rotations: int = orientation - 4 if mirror else orientation
+    # orig_move = move
+    if mirror:
         move = swapchars(move, '+', '-')
         move = swapsquare(move, board_size)
-    for _ in range(0, orientation):
+
+    for _ in range(0, number_of_rotations):
         move = rotate_move(move, board_size)
-    test_transpose = transposed_transform_move(
-        move=move,
-        orientation=orientation,
-        board_size=board_size
-    )
-    assert test_transpose == orig
+
+    # Disabled for ~10% performance
+    # test_transpose = transposed_transform_move(
+    #     move=move,
+    #     orientation=orientation,
+    #     board_size=board_size
+    # )
+    # assert test_transpose == orig_move
+
     return move
 
 
 def transposed_transform_move(move: str, orientation: TpsSymmetry, board_size: BoardSize) -> str:
-    for _ in range(orientation, 4 if orientation >= 4 else 0, -1):
+    mirror: bool = orientation >= 4
+    number_of_rotations: int = orientation - 4 if mirror else orientation
+
+    for _ in range(number_of_rotations):
         move = rotate_move(move, board_size)
         move = rotate_move(move, board_size)
         move = rotate_move(move, board_size)
-    if orientation >= 4:
+
+    if mirror:
         move = swapchars(move, '+', '-')
         move = swapsquare(move, board_size)
     return move
