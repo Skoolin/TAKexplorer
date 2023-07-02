@@ -2,12 +2,11 @@ from typing import Tuple
 
 from base_types import BoardSize, NormalizedTpsString, TpsString, TpsStringExpanded, TpsSymmetry
 
-# only works with size 6!!
 
 def flip_tps(tps: TpsStringExpanded) -> TpsStringExpanded:
     spl = tps.split('/')
     spl.reverse()
-    return '/'.join(spl)  # type: ignore
+    return TpsStringExpanded('/'.join(spl))
 
 
 def rotate_mat(board):
@@ -24,7 +23,7 @@ def expand_tps_xn(tps: TpsString) -> TpsStringExpanded:
     tps = tps.replace('x4', 'x,x,x,x') # type: ignore
     tps = tps.replace('x3', 'x,x,x') # type: ignore
     tps = tps.replace('x2', 'x,x') # type: ignore
-    return tps # type: ignore
+    return TpsStringExpanded(tps)
 
 def collapse_tps_xn(tps: TpsStringExpanded) -> TpsString:
     tps = tps.replace('x,x,x,x,x,x,x', 'x7') # type: ignore
@@ -33,7 +32,7 @@ def collapse_tps_xn(tps: TpsStringExpanded) -> TpsString:
     tps = tps.replace('x,x,x,x', 'x4') # type: ignore
     tps = tps.replace('x,x,x', 'x3') # type: ignore
     tps = tps.replace('x,x', 'x2') # type: ignore
-    return tps # type: ignore
+    return TpsString(tps)
 
 
 def rotate_tps(tps_expanded: TpsStringExpanded) -> TpsStringExpanded:
@@ -46,14 +45,13 @@ def rotate_tps(tps_expanded: TpsStringExpanded) -> TpsStringExpanded:
 
     board = rotate_mat(board)
 
-    tps_expanded_rotated: TpsStringExpanded = '/'.join([','.join(a) for a in board]) # type: ignore
-
-    return tps_expanded_rotated
+    tps_expanded_rotated = '/'.join([','.join(a) for a in board])
+    return TpsStringExpanded(tps_expanded_rotated)
 
 
 def get_tps_orientation(tps: TpsString) -> Tuple[NormalizedTpsString, TpsSymmetry]:
     # ignore ending (current player)
-    tps = tps[:-4] # type: ignore
+    tps = TpsString(tps[:-4])
 
     tps_expanded = expand_tps_xn(tps)
     o = 0
@@ -75,14 +73,13 @@ def get_tps_orientation(tps: TpsString) -> Tuple[NormalizedTpsString, TpsSymmetr
         if rot_tps < best_tps:
             o = i
             best_tps = rot_tps
-    normalized_tps: NormalizedTpsString = best_tps # type: ignore
-    return normalized_tps, TpsSymmetry(o)
+    return NormalizedTpsString(best_tps), TpsSymmetry(o)
 
 
 def transform_tps(tps: TpsString, orientation: int) -> TpsString:
     # remove current player and current move
     ending = tps[-4:]
-    tps = tps[:-4] # type: ignore
+    tps = TpsString(tps[:-4])
     tps_expanded = expand_tps_xn(tps)
     if orientation > 3:
         tps_expanded = flip_tps(tps_expanded)
@@ -92,7 +89,7 @@ def transform_tps(tps: TpsString, orientation: int) -> TpsString:
         for _ in range(0, orientation):
             tps_expanded = rotate_tps(tps_expanded)
 
-    tps_collapsed: TpsString = collapse_tps_xn(tps_expanded) + ending # type: ignore
+    tps_collapsed = TpsString(collapse_tps_xn(tps_expanded) + ending)
     return tps_collapsed
 
 
