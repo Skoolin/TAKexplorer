@@ -265,10 +265,14 @@ def get_position_analysis(
                 field_name: str,
                 values: Optional[Union[list[str], list[int], list[float], int, float, str, bool]],
                 negate: bool = False,
+                variable_name: Optional[str] = None,
             ):
                 """
                 Returns a partial SQL condition checking that `field_name` equals or is in `values`
+                @param variable_name The placeholder-name used in the SQL query. Uses `field_name` if `None`.
                 """
+                if variable_name is None:
+                    variable_name = field_name
                 if values == [] or values is None or values == "":  # intentionally allow e.g. `0``
                     return "", {}
 
@@ -287,8 +291,8 @@ def get_position_analysis(
             white_str, white_vals = build_condition("white", settings.white)
             black_str, black_vals = build_condition("black", settings.black)
             bot_names = [] if settings.include_bot_games else BOTLIST
-            exclude_bots_white_str, excl_bots_white_vals = build_condition("white", bot_names, negate=True)
-            exclude_bots_black_str, excl_bots_black_vals = build_condition("black", bot_names, negate=True)
+            exclude_bots_white_str, excl_bots_white_vals = build_condition("white", bot_names, True, "excl_white_names")
+            exclude_bots_black_str, excl_bots_black_vals = build_condition("black", bot_names, True, "excl_black_names")
 
             # db stores komi as an integer (double of what it actually is)
             komi_raw: Optional[list[float]] = settings.komi if isinstance(settings.komi, list) \
@@ -395,6 +399,8 @@ def get_position_analysis(
                     {max_date_str}
                     {white_str}
                     {black_str}
+                    {exclude_bots_white_str}
+                    {exclude_bots_black_str}
                     {komi_str}
                 ORDER BY AVG_rating DESC
                 LIMIT {MAX_GAME_EXAMPLES};
