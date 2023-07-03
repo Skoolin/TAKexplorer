@@ -287,8 +287,8 @@ def get_position_analysis(
             white_str, white_vals = build_condition("white", settings.white)
             black_str, black_vals = build_condition("black", settings.black)
             bot_names = [] if settings.include_bot_games else BOTLIST
-            exclude_bots_white_str, excl_bots_white_vals = build_condition("white", bot_names)
-            exclude_bots_black_str, excl_bots_black_vals = build_condition("black", bot_names)
+            exclude_bots_white_str, excl_bots_white_vals = build_condition("white", bot_names, negate=True)
+            exclude_bots_black_str, excl_bots_black_vals = build_condition("black", bot_names, negate=True)
 
             # db stores komi as an integer (double of what it actually is)
             komi_raw: Optional[list[float]] = settings.komi if isinstance(settings.komi, list) \
