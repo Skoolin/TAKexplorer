@@ -1,8 +1,7 @@
 # TAKexplorer
 A tak opening DB generator and explorer that serves via an API.
 
-Currently only supports games with board size of 6.
-
+Support began for 6x6 but now 3x3 up to 8x8 should be possible. To support larger sizes `expand/collapse_tps_xn()` needs to be updated.
 
 ## Opening theory
 In the Wiki I started to write up an index of popular openings: https://github.com/Skoolin/TAKexplorer/wiki
@@ -65,4 +64,14 @@ Deriving the exploration database the first time may take a few minutes. Updates
 pipenv shell # enter environment
 pip install hupper
 hupper -m waitress --listen HOST:PORT wsgi:app # automatically restarts server on filechange
+```
+
+### Unit tests
+The coverage is not very good yet.
+
+#### Running unit tests:
+```sh
+pipenv shell # enter environment
+pip install hupper
+hupper -m pytest --verbose # automatically reruns unit tests on filechange
 ```

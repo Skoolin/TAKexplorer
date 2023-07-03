@@ -9,36 +9,38 @@ def flip_tps(tps: TpsStringExpanded) -> TpsStringExpanded:
     return TpsStringExpanded('/'.join(spl))
 
 
-def rotate_mat(board):
-    result = []
+def rotate_mat(board: list[list[str]]) -> list[list[str]]:
+    result: list[list[str]] = []
     for i in range(0, len(board[0])):
         result.append([x[i] for x in board])
     result.reverse()
     return result
 
 def expand_tps_xn(tps: TpsString) -> TpsStringExpanded:
-    tps = tps.replace('x7', 'x,x,x,x,x,x,x') # type: ignore
-    tps = tps.replace('x6', 'x,x,x,x,x,x') # type: ignore
-    tps = tps.replace('x5', 'x,x,x,x,x') # type: ignore
-    tps = tps.replace('x4', 'x,x,x,x') # type: ignore
-    tps = tps.replace('x3', 'x,x,x') # type: ignore
-    tps = tps.replace('x2', 'x,x') # type: ignore
-    return TpsStringExpanded(tps)
+    s = tps.replace('x8', 'x,x,x,x,x,x,x,x')
+    s = s.replace('x7', 'x,x,x,x,x,x,x')
+    s = s.replace('x6', 'x,x,x,x,x,x')
+    s = s.replace('x5', 'x,x,x,x,x')
+    s = s.replace('x4', 'x,x,x,x')
+    s = s.replace('x3', 'x,x,x')
+    s = s.replace('x2', 'x,x')
+    return TpsStringExpanded(s)
 
 def collapse_tps_xn(tps: TpsStringExpanded) -> TpsString:
-    tps = tps.replace('x,x,x,x,x,x,x', 'x7') # type: ignore
-    tps = tps.replace('x,x,x,x,x,x', 'x6') # type: ignore
-    tps = tps.replace('x,x,x,x,x', 'x5') # type: ignore
-    tps = tps.replace('x,x,x,x', 'x4') # type: ignore
-    tps = tps.replace('x,x,x', 'x3') # type: ignore
-    tps = tps.replace('x,x', 'x2') # type: ignore
-    return TpsString(tps)
+    s = tps.replace('x,x,x,x,x,x,x,x', 'x8')
+    s = s.replace('x,x,x,x,x,x,x', 'x7')
+    s = s.replace('x,x,x,x,x,x', 'x6')
+    s = s.replace('x,x,x,x,x', 'x5')
+    s = s.replace('x,x,x,x', 'x4')
+    s = s.replace('x,x,x', 'x3')
+    s = s.replace('x,x', 'x2')
+    return TpsString(s)
 
 
 def rotate_tps(tps_expanded: TpsStringExpanded) -> TpsStringExpanded:
     splits = tps_expanded.split('/')
 
-    board = []
+    board: list[list[str]] = []
 
     for split in splits:
         board.append(split.split(','))
@@ -50,6 +52,10 @@ def rotate_tps(tps_expanded: TpsStringExpanded) -> TpsStringExpanded:
 
 
 def get_tps_orientation(tps: TpsString) -> Tuple[NormalizedTpsString, TpsSymmetry]:
+    """
+    nitzel 20230603: I've tried improving the performance by reducing the number
+    of `NormalizedTpsString <-> list[list[str]]` conversions but that slowed it down instead.
+    """
     # ignore ending (current player)
     tps = TpsString(tps[:-4])
 
