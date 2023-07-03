@@ -17,7 +17,7 @@ from werkzeug.exceptions import HTTPException, InternalServerError, NotFound
 
 import ptn_parser
 import symmetry_normalisator
-from db_extractor import get_games_from_db, get_ptn
+from db_extractor import BOTLIST, get_games_from_db, get_ptn
 from position_db import PositionDataBase
 from base_types import BoardSize, NormalizedTpsString, TpsString, TpsSymmetry
 
@@ -27,7 +27,7 @@ MAX_GAME_EXAMPLES = 4
 MAX_SUGGESTED_MOVES = 20
 MAX_PLIES = 30
 NUM_PLIES = 12
-NUM_GAMES = 20_000
+NUM_GAMES = 100_000
 MIN_RATING = 1200
 
 @dataclass
@@ -261,7 +261,8 @@ def get_position_analysis(
             total_draws = 0
             def build_condition(
                 field_name: str,
-                values: Optional[Union[list[str], list[int], list[float], int, float, str, bool]]
+                values: Optional[Union[list[str], list[int], list[float], int, float, str, bool]],
+                negate: bool = False,
             ):
                 """
                 Returns a partial SQL condition checking that `field_name` equals or is in `values`
@@ -275,12 +276,17 @@ def get_position_analysis(
                 if isinstance(values, list):
                     kv_map = {f'{field_name}{i}':v for i, v in enumerate(values)}
                     field_names = [f":{k}" for k in kv_map.keys()]
-                    return f"AND games.{field_name} IN ({','.join(field_names)})", kv_map
+                    operator = 'NOT IN' if negate else 'IN'
+                    return f"AND games.{field_name} {operator} ({','.join(field_names)})", kv_map
 
+                operator = '!=' if negate else '='
                 return f"AND games.{field_name} = :{field_name}", { field_name: values }
 
             white_str, white_vals = build_condition("white", settings.white)
             black_str, black_vals = build_condition("black", settings.black)
+            bot_names = [] if settings.include_bot_games else BOTLIST
+            exclude_bots_white_str, excl_bots_white_vals = build_condition("white", bot_names)
+            exclude_bots_black_str, excl_bots_black_vals = build_condition("black", bot_names)
 
             # db stores komi as an integer (double of what it actually is)
             komi_raw: Optional[list[float]] = settings.komi if isinstance(settings.komi, list) \
@@ -302,6 +308,8 @@ def get_position_analysis(
                 "max_date": playtak_timestamp_from(settings.max_date) if settings.max_date else None,
                 **white_vals,
                 **black_vals,
+                **excl_bots_white_vals,
+                **excl_bots_black_vals,
                 **komi_vals,
                 **tournament_vals,
             }
@@ -324,6 +332,8 @@ def get_position_analysis(
                         {max_date_str}
                         {white_str}
                         {black_str}
+                        {exclude_bots_white_str}
+                        {exclude_bots_black_str}
                         {komi_str}
                     GROUP BY games.result
                 """
