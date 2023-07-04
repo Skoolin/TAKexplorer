@@ -121,6 +121,7 @@ class PositionDataBase(PositionProcessor):
         tak: GameState
     ) -> int:
         assert self.conn is not None
+        assert bool(next_tps) == bool(move) # either none or both must be set
         curr = self.conn.cursor()
 
         # normalize for symmetries
@@ -142,7 +143,16 @@ class PositionDataBase(PositionProcessor):
             curr.execute(select_position_row_sql)
             row = curr.fetchone()
 
-        if next_tps is not None:
+        # update the game-move crossreference table
+        row_dict = dict(row)
+        position_id = row_dict['id']
+
+        curr.execute(
+            "INSERT INTO game_position_xref (game_id, position_id) VALUES (:game_id, :position_id);",
+            { 'game_id': game_id, 'position_id': position_id }
+        )
+
+        if next_tps is not None and move is not None:
             next_tps_normalized, _next_symmetry = symmetry_normalisator.get_tps_orientation(next_tps)
             select_next_position_row_sql = f"""
                 SELECT *
@@ -161,17 +171,7 @@ class PositionDataBase(PositionProcessor):
 
             next_pos_id = dict(next_pos)['id']
 
-        # update the game-move crossreference table
-        row_dict = dict(row)
-        position_id = row_dict['id']
-
-        curr.execute(
-            "INSERT INTO game_position_xref (game_id, position_id) VALUES (:game_id, :position_id);",
-            { 'game_id': game_id, 'position_id': position_id }
-        )
-
-        # if a move is given also update the move table
-        if move is not None:
+            # if a move is given also update the move table
             # orient move to previous symmetry
             move = symmetry_normalisator.transform_move(
                 move=move,
