@@ -41,7 +41,7 @@ jobs:
         cache: pipenv
     - name: Install pipenv
       run: pip install pipenv
-    - name: pipenv install
+    - name: Install dependencies (cached)
       run: pipenv install
     - name: download playtak games database
       run: |
@@ -51,10 +51,11 @@ jobs:
       run: |
         pipenv run python TAKexplorer.py extract -i data/games_anon.db -o data/openings_s6_1200.db -p 12 -n 100000 -r 1200
         pipenv run python util/dump_db.py
-    - name: Create Release
+    - name: Create Release with files
       uses: softprops/action-gh-release@v1
       id: create_release
       with:
+        target_commitish: ${{github.sha}} # commit sha / id
         tag_name: release_06_${{github.ref}}_${{ github.run_id }}
         name: Release ${{ github.ref }} ${{ github.run_id }}
         fail_on_unmatched_files: true
