@@ -7,7 +7,7 @@ on:
 #    # * is a special character in YAML so you have to quote this string
 #    - cron:  '30 2 * * 2'
   push:
-    branches: [main]
+    # branches: [main]
 
 jobs:
   build:
@@ -15,28 +15,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python 3.11
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: 3.11
+        cache: pipenv
+    - name: Install pipenv
+      run: pip install pipenv
+    - name: pipenv install
+      run: pipenv install
     - name: download playtak games database
       run: |
         mkdir data
         wget -O data/games_anon.db https://www.playtak.com/games_anon.db
     - name: generate database
       run: |
-        pip install pillow tqdm
-        python TAKexplorer.py extract -i data/games_anon.db -o data/openings_s6_1200.db -p 12 -n 100000 -r 1200
-        python util/dump_db.py
+        pipenv run python TAKexplorer.py extract -i data/games_anon.db -o data/openings_s6_1200.db -p 12 -n 100000 -r 1200
+        pipenv run python util/dump_db.py
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: release_06_${{github.ref}}
-        release_name: Release ${{ github.ref }}
+        tag_name: release_06_${{github.ref}}_${{ github.run_id }}
+        release_name: Release ${{ github.ref }} ${{ github.run_id }}
         draft: false
         prerelease: false
     - name: Upload sqlite3 db

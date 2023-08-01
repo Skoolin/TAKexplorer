@@ -1,6 +1,6 @@
 # Runs the unit tests
 
-name: unit-tests
+name: run unit-tests
 
 on:
   push:
