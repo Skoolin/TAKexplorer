@@ -1,0 +1,28 @@
+# Runs the unit tests
+
+name: unit-tests
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+        cache: pipenv
+    - name: Install pipenv
+      run: pip install pipenv
+    - name: pipenv install
+      run: pipenv install --dev
+    - name: Run pytest
+      run: pipenv run pytest
