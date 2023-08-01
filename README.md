@@ -61,9 +61,7 @@ Deriving the exploration database the first time may take a few minutes. Updates
 
 ### Automatic reloading for development
 ```sh
-pipenv shell # enter environment
-pip install hupper
-hupper -m waitress --listen HOST:PORT wsgi:app # automatically restarts server on filechange
+pipenv run hupper -m waitress --listen HOST:PORT wsgi:app # automatically restarts server on filechange
 ```
 
 ### Unit tests
@@ -71,7 +69,5 @@ The coverage is not very good yet.
 
 #### Running unit tests:
 ```sh
-pipenv shell # enter environment
-pip install hupper
-hupper -m pytest --verbose # automatically reruns unit tests on filechange
+pipenv run hupper -m pytest --verbose # automatically reruns unit tests on filechange
 ```
