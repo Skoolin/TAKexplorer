@@ -109,9 +109,9 @@ def swapchars(s: str, a: str, b: str) -> str:
     note: nitzel: This is very performant,
         iterating only once over the string via regex or list comprehension is ~4x slower
     """
-    s = s.replace(a, 'z')
-    s = s.replace(b, a)
-    s = s.replace('z', b)
+    s = s.replace(a, 'z', 1)
+    s = s.replace(b, a, 1)
+    s = s.replace('z', b, 1)
     return s
 
 
@@ -130,11 +130,11 @@ def rotate_move(move: str, board_size) -> str:
     # a1 -> f1
     # 3c2+12 -> 3e3<12
     orig = move
-    move = move.replace('+', 'z')
-    move = move.replace('>', '+')
-    move = move.replace('-', '>')
-    move = move.replace('<', '-')
-    move = move.replace('z', '<')
+    move = move.replace('+', 'z', 1)
+    move = move.replace('>', '+', 1)
+    move = move.replace('-', '>', 1)
+    move = move.replace('<', '-', 1)
+    move = move.replace('z', '<', 1)
 
     for (i, c) in enumerate(move):
         if c.islower():
