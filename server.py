@@ -85,6 +85,7 @@ openings_db_configs = [
     OpeningsDbConfig(min_rating=MIN_RATING, include_bot_games=False, size=BoardSize(6)),
     OpeningsDbConfig(min_rating=1700, include_bot_games=True, size=BoardSize(6)),
     OpeningsDbConfig(min_rating=1200, include_bot_games=True, size=BoardSize(7)),
+    OpeningsDbConfig(min_rating=1500, include_bot_games=True, size=BoardSize(8)),
     # careful, 5x5 with 1500 elo and bots contains ~60k
     OpeningsDbConfig(min_rating=1500, include_bot_games=True, size=BoardSize(5)),
 ]
