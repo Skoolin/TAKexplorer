@@ -71,3 +71,7 @@ The coverage is not very good yet.
 ```sh
 pipenv run hupper -m pytest --verbose # automatically reruns unit tests on filechange
 ```
+
+### TQDM
+If you encounter the warning `UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown` on restarts - we get that because we're using TQDM.
+I'm not sure what can be done about it.
