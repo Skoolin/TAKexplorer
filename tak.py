@@ -1,3 +1,6 @@
+from base_types import PlayerToMove, get_opponent
+
+
 class Stone:
     def __init__(self, colour: str, stone_type: str):
         self.colour = colour
@@ -50,13 +53,33 @@ class GameState:
             self.board.append([])
             for j in range(0, size):
                 self.board[i].append(Square())
-        self.player = "white"
-        self.first_move = True
+        self.ply_counter = 0
+
+    @staticmethod
+    def get_player(ply_counter) -> PlayerToMove:
+        player_id = ply_counter % 2
+        if player_id == 0:
+            return 'white'
+        return 'black'
+
+    @staticmethod
+    def is_first_move(ply_counter: int) -> bool:
+        return ply_counter < 2
+
+    @staticmethod
+    def colour_to_play(ply_counter: int):
+        player = GameState.get_player(ply_counter)
+        if GameState.is_first_move(ply_counter):
+            return get_opponent(player)
+        return player
+
+    @property
+    def player(self):
+        return GameState.get_player(self.ply_counter)
 
     def clone(self):
         c = GameState(self.size)
-        c.player = self.player
-        c.first_move = self.first_move
+        c.ply_counter = self.ply_counter
         for y in range(0, self.size):
             for x in range(0, self.size):
                 c.board[x][y] = self.board[x][y].clone()
@@ -78,12 +101,7 @@ class GameState:
 
     def move(self, ptn: str):
 
-        colour_to_place = self.player
-        if self.first_move:
-            colour_to_place = ("white" if self.player == "black" else "black")
-            if self.player == "black":
-                self.first_move = False
-
+        colour_to_place = GameState.colour_to_play(self.ply_counter)
         # check for move command:
         first_char = ptn[0]
         move_command = first_char.isdecimal()
@@ -127,8 +145,7 @@ class GameState:
             square = self.get_square(ptn)
             square.stones.append(Stone(colour_to_place, stone_type))
 
-        # switch active player
-        self.player = ("white" if self.player == "black" else "black")
+        self.ply_counter += 1
 
     def get_tps(self):
         res = ''
@@ -156,7 +173,7 @@ class GameState:
             res += row + '/'
         res = res[:-1] # remove trailing /
         res = res + (' 1' if self.player == "white" else ' 2') # add current player
-        res = res + ' 1' #TODO: we don't count moves currently (also change in symmetry_normalisator.py)
+        res = res + ' ' + str(self.ply_counter) #TODO: also add ply_counter in symmetry_normalisator.py?
         return res
 
     def reset(self):
@@ -165,5 +182,4 @@ class GameState:
             self.board.append([])
             for _ in range(0, self.size):
                 self.board[i].append(Square())
-        self.player = "white"
-        self.first_move = True
+        self.ply_counter = 0

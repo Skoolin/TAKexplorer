@@ -19,7 +19,7 @@ import ptn_parser
 import symmetry_normalisator
 from db_extractor import BOTLIST, get_games_from_db, get_ptn
 from position_db import PositionDataBase
-from base_types import BoardSize, NormalizedTpsString, TpsString, TpsSymmetry
+from base_types import BoardSize, NormalizedTpsString, TpsString, TpsSymmetry, color_to_place_from_tps
 
 DATA_DIR = 'data'
 PLAYTAK_GAMES_DB = os.path.join(DATA_DIR, 'games_anon.db')
@@ -219,7 +219,9 @@ def get_position_analysis(
     settings: AnalysisSettings,
     tps: TpsString,
 ) -> PositionAnalysis:
-    print(f'requested position with white: {settings.white}, black: {settings.black}, min. min_rating: {settings.min_rating}, tps: {tps}')
+    print(f'requested position with white: {settings.white}, black: {settings.black}, min rating: {settings.min_rating}, tps: {tps}')
+
+    player_to_move = color_to_place_from_tps(tps)
 
     settings.min_rating = max(config.min_rating, settings.min_rating) if settings.min_rating else config.min_rating
     settings.include_bot_games = config.include_bot_games and settings.include_bot_games
@@ -230,29 +232,27 @@ def get_position_analysis(
     else:
         raise ValueError(f"tournament field is '{settings.tournament}' of type '{type(settings.tournament)}' but should be bool or null")
 
-    print("Searching with", config, settings)
 
     # we don't care about move number:
     sym_tps, symmetry = to_symmetric_tps(tps)
+    print(f"Searching for player={player_to_move} with", config, settings, "sym_tps=", sym_tps)
 
-    select_results_sql = "SELECT * FROM positions WHERE tps=:sym_tps;"
+    select_results_sql = "SELECT * FROM positions WHERE tps=:sym_tps AND player_to_move=:player_to_move"
 
     with closing(sqlite3.connect(config.db_file_name)) as db:
         db.row_factory = sqlite3.Row
         with closing(db.cursor()) as cur:
-            cur.execute(select_results_sql, {"sym_tps": sym_tps})
+            cur.execute(select_results_sql, {"sym_tps": sym_tps, "player_to_move": player_to_move})
 
             rows = cur.fetchone()
             if rows is None:
                 return PositionAnalysis(config=config, settings=settings)
 
             rows = dict(rows)
-
-            position_moves = rows['moves']
-            if position_moves == '':
+            if rows['moves'] == '':
                 position_moves = []
             else:
-                position_moves = position_moves.split(';')
+                position_moves = rows['moves'].split(';')
 
             moves_list: list[tuple[str, str]] = list(map(lambda x: x.split(','), position_moves))
 
@@ -310,6 +310,7 @@ def get_position_analysis(
             tournament_str, tournament_vals = build_condition("tournament", settings.tournament)
 
             default_query_vars = {
+                "player_to_move": player_to_move,
                 "min_rating": settings.min_rating,
                 "min_date": playtak_timestamp_from(settings.min_date) if settings.min_date else None,
                 "max_date": playtak_timestamp_from(settings.max_date) if settings.max_date else None,
@@ -326,6 +327,7 @@ def get_position_analysis(
                     continue
                 explored_position_ids.add(position_id)
 
+                # no need to specify player_to_move here, because we're already walking by positions.id
                 select_games_sql = f"""
                     SELECT games.result, count(games.result) AS count
                     FROM game_position_xref, games, positions
@@ -393,6 +395,7 @@ def get_position_analysis(
                 WHERE game_position_xref.position_id=positions.id
                     AND games.id = game_position_xref.game_id
                     AND positions.tps = :sym_tps
+                    AND positions.player_to_move = :player_to_move
                     AND games.rating_white >= :min_rating
                     AND games.rating_black >= :min_rating
                     {tournament_str}
@@ -443,7 +446,7 @@ def get_position_with_db_id(db_id: int, tps: str):
 
     if db_id >= len(openings_db_configs):
         raise NotFound("database index out of range, query api/v1/databases for options")
-    tps_string: TpsString = tps # type: ignore
+    tps_string = TpsString(tps)
     analysis = get_position_analysis(openings_db_configs[db_id], settings, tps_string)
     return jsonify(analysis)
 

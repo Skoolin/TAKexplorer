@@ -2,7 +2,7 @@ from contextlib import closing
 import os
 import sqlite3
 from typing import Optional, Union
-from base_types import BoardSize, TpsString
+from base_types import BoardSize, PlayerToMove, TpsString
 
 import symmetry_normalisator
 from position_processor import PositionProcessor
@@ -36,7 +36,8 @@ class PositionDataBase(PositionProcessor):
             """
             CREATE TABLE IF NOT EXISTS positions (
                 id integer PRIMARY KEY,
-                tps text UNIQUE,
+                tps text NOT NULL,
+                player_to_move text NOT NULL,
                 moves text
             );
             """,
@@ -51,16 +52,16 @@ class PositionDataBase(PositionProcessor):
         """]
 
         create_index_sql = [
-            "CREATE INDEX IF NOT EXISTS idx_xref_game_id ON game_position_xref (game_id);",
-            "CREATE INDEX IF NOT EXISTS idx_xref_position_id ON game_position_xref (position_id);",
-            "CREATE INDEX IF NOT EXISTS idx_position_tps ON positions (tps);",
-            "CREATE INDEX IF NOT EXISTS idx_games_white ON games (white);",
-            "CREATE INDEX IF NOT EXISTS idx_games_black ON games (black);",
-            "CREATE INDEX IF NOT EXISTS idx_games_rating_white ON games (rating_white);",
-            "CREATE INDEX IF NOT EXISTS idx_games_rating_black ON games (rating_black);",
-            "CREATE INDEX IF NOT EXISTS idx_games_komi ON games (komi);",
-            "CREATE INDEX IF NOT EXISTS idx_games_date ON games (date);",
-            "CREATE INDEX IF NOT EXISTS idx_games_tournament ON games (tournament);",
+            "CREATE        INDEX IF NOT EXISTS idx_xref_game_id ON game_position_xref (game_id);",
+            "CREATE        INDEX IF NOT EXISTS idx_xref_position_id ON game_position_xref (position_id);",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_position_tps ON positions (tps, player_to_move);",
+            "CREATE        INDEX IF NOT EXISTS idx_games_white ON games (white);",
+            "CREATE        INDEX IF NOT EXISTS idx_games_black ON games (black);",
+            "CREATE        INDEX IF NOT EXISTS idx_games_rating_white ON games (rating_white);",
+            "CREATE        INDEX IF NOT EXISTS idx_games_rating_black ON games (rating_black);",
+            "CREATE        INDEX IF NOT EXISTS idx_games_komi ON games (komi);",
+            "CREATE        INDEX IF NOT EXISTS idx_games_date ON games (date);",
+            "CREATE        INDEX IF NOT EXISTS idx_games_tournament ON games (tournament);",
         ]
 
         try:
@@ -122,89 +123,93 @@ class PositionDataBase(PositionProcessor):
     ) -> int:
         assert self.conn is not None
         assert bool(next_tps) == bool(move) # either none or both must be set
-        curr = self.conn.cursor()
+        with  closing(self.conn.cursor()) as curr:
 
-        # normalize for symmetries
-        tps_normalized, own_symmetry = symmetry_normalisator.get_tps_orientation(tps)
+            # In the beginning of the game, on ply 2 and 3, white is placed consecutively
+            color_to_place = tak.colour_to_play(tak.ply_counter - 1)
+            color_to_place_next = tak.colour_to_play(tak.ply_counter)
 
-        select_position_row_sql = f"""
-            SELECT *
-            FROM positions
-            WHERE tps = '{tps_normalized}'
-            ;
-        """
+            # normalize for symmetries
+            tps_normalized, own_symmetry = symmetry_normalisator.get_tps_orientation(tps)
+            select_position_row_sql = f"""
+                SELECT *
+                FROM positions
+                WHERE tps = '{tps_normalized}' AND player_to_move = '{color_to_place}'
+                ;
+            """
 
-        curr.execute(select_position_row_sql)
-        row = curr.fetchone()
-
-        # if this position does not exist, create it
-        if row is None:
-            self.create_position_entry(tps_normalized)
             curr.execute(select_position_row_sql)
             row = curr.fetchone()
 
-        # update the game-move crossreference table
-        row_dict = dict(row)
-        position_id = row_dict['id']
+            # if this position does not exist, create it
+            if row is None:
+                self.create_position_entry(tps_normalized, color_to_place)
+                curr.execute(select_position_row_sql)
+                row = curr.fetchone()
 
-        curr.execute(
-            "INSERT INTO game_position_xref (game_id, position_id) VALUES (:game_id, :position_id);",
-            { 'game_id': game_id, 'position_id': position_id }
-        )
+            # update the game-move crossreference table
+            row_dict = dict(row)
+            position_id = row_dict['id']
 
-        if next_tps is not None and move is not None:
-            next_tps_normalized, _next_symmetry = symmetry_normalisator.get_tps_orientation(next_tps)
-            select_next_position_row_sql = f"""
-                SELECT *
-                FROM positions
-                WHERE tps = '{next_tps_normalized}'
-                ;
-            """
-            curr.execute(select_next_position_row_sql)
-            next_pos = curr.fetchone()
+            curr.execute(
+                "INSERT INTO game_position_xref (game_id, position_id) VALUES (:game_id, :position_id);",
+                { 'game_id': game_id, 'position_id': position_id }
+            )
 
-            # if next position does not exist, create it
-            if next_pos is None:
-                self.create_position_entry(next_tps_normalized)
+            if next_tps is not None and move is not None:
+                next_tps_normalized, _next_symmetry = symmetry_normalisator.get_tps_orientation(next_tps)
+                select_next_position_row_sql = f"""
+                    SELECT *
+                    FROM positions
+                    WHERE tps = '{next_tps_normalized}'
+                    AND player_to_move = '{color_to_place_next}'
+                    ;
+                """
                 curr.execute(select_next_position_row_sql)
                 next_pos = curr.fetchone()
 
-            next_pos_id = dict(next_pos)['id']
+                # if next position does not exist, create it
+                if next_pos is None:
+                    self.create_position_entry(next_tps_normalized, color_to_place_next)
+                    curr.execute(select_next_position_row_sql)
+                    next_pos = curr.fetchone()
 
-            # if a move is given also update the move table
-            # orient move to previous symmetry
-            move = symmetry_normalisator.transform_move(
-                move=move,
-                orientation=own_symmetry,
-                board_size=tak.size,
-            )
-            position_moves = row_dict['moves']
-            if position_moves != '':
-                position_moves = row_dict['moves'].split(';')
-            else:
-                position_moves = []
-            moves_list = list(map(lambda x: x.split(','), position_moves))
+                next_pos_id = dict(next_pos)['id']
 
-            # if move is in moves_list, update count
-            move_found = False
-            for moves in moves_list:
-                if moves[0] == move:
-                    move_found = True
-                    break
-
-            if not move_found:
-                # append new move to moves_list
-                moves_list.append((move, str(next_pos_id)))
-
-                # transform moves_list into db string format
-                position_moves = ';'.join(map(','.join, moves_list))
-
-                curr.execute(
-                    "UPDATE positions SET moves=:position_moves WHERE id=:position_id",
-                    { 'position_moves': position_moves, 'position_id': position_id }
+                # if a move is given also update the move table
+                # orient move to previous symmetry
+                move = symmetry_normalisator.transform_move(
+                    move=move,
+                    orientation=own_symmetry,
+                    board_size=tak.size,
                 )
+                position_moves = row_dict['moves']
+                if position_moves != '':
+                    position_moves = row_dict['moves'].split(';')
+                else:
+                    position_moves = []
+                moves_list = list(map(lambda x: x.split(','), position_moves))
 
-        return own_symmetry
+                # if move is in moves_list, update count
+                move_found = False
+                for moves in moves_list:
+                    if moves[0] == move:
+                        move_found = True
+                        break
+
+                if not move_found:
+                    # append new move to moves_list
+                    moves_list.append((move, str(next_pos_id)))
+
+                    # transform moves_list into db string format
+                    position_moves = ';'.join(map(','.join, moves_list))
+
+                    curr.execute(
+                        "UPDATE positions SET moves=:position_moves WHERE id=:position_id",
+                        { 'position_moves': position_moves, 'position_id': position_id }
+                    )
+
+            return own_symmetry
 
     def dump(self):
         assert self.conn is not None
@@ -232,14 +237,13 @@ class PositionDataBase(PositionProcessor):
             RETURNING id;
         """ # use RETURNING so that we can get the inserted id after the query
 
-        curr = self.conn.cursor()
-        curr.execute(insert_game_data_sql)
-        inserted_id = curr.fetchone()[0]
-        return inserted_id
+        with closing(self.conn.cursor()) as curr:
+            curr.execute(insert_game_data_sql)
+            inserted_id = curr.fetchone()[0]
+            return inserted_id
 
-    def create_position_entry(self, tps: str):
+    def create_position_entry(self, tps: str, player_to_move: PlayerToMove):
         assert self.conn is not None
-
-        insert_position_data_sql = "INSERT INTO positions (tps, moves) VALUES (:tps, '');"
-        curr = self.conn.cursor()
-        curr.execute(insert_position_data_sql, { 'tps': tps })
+        insert_position_data_sql = "INSERT INTO positions (tps, player_to_move, moves) VALUES (:tps, :player_to_move, '');"
+        with closing(self.conn.cursor()) as curr:
+            curr.execute(insert_position_data_sql, { 'tps': tps, 'player_to_move': player_to_move })
